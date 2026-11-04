@@ -120,6 +120,14 @@
   // um textarea escondido: selecao no DOM visivel + execCommand NAO funciona.
   // O correto e usar a API do proprio editor. O marcador (markText) rastreia
   // o placeholder mesmo se o usuario continuar digitando durante o upload.
+  function dbg(...args) {
+    try {
+      console.info('[TNPI]', ...args);
+    } catch {
+      /* noop */
+    }
+  }
+
   // O alvo do paste pode estar fora do `.CodeMirror` (ex.: wrapper do React):
   // por isso a busca parte da raiz do editor (`.bytemd`, `.CodeMirror` ou
   // `.cm-editor`) e so depois desce ate o wrapper — nao depende de o alvo
@@ -127,6 +135,11 @@
   function getCM5(el) {
     if (!el || !el.closest) return null;
     const root = el.closest('.CodeMirror, .bytemd, .cm-editor');
+    if (!root) return null;
+    return cmFromRoot(root);
+  }
+
+  function cmFromRoot(root) {
     if (!root) return null;
     const wrap =
       root.classList && root.classList.contains('CodeMirror')
@@ -137,6 +150,39 @@
       return cm;
     }
     return null;
+  }
+
+  // Na hora da troca, o alvo do paste pode estar obsoleto (o React remontou
+  // o editor durante o upload): resolve a instancia VIVA de novo, caindo
+  // para qualquer `.CodeMirror` do documento quando a raiz sumiu.
+  function getLiveCM(el) {
+    const fromTarget = getCM5(el);
+    if (fromTarget) return { cm: fromTarget, same: true };
+    const wraps = document.querySelectorAll('.CodeMirror');
+    for (const w of wraps) {
+      const cm = w && w.CodeMirror;
+      if (cm && typeof cm.replaceRange === 'function' && typeof cm.getValue === 'function') {
+        return { cm, same: false };
+      }
+    }
+    return { cm: null, same: false };
+  }
+
+  // Troca por busca textual no valor atual: funciona mesmo quando o marcador
+  // morreu (editor remontado, estado controlado reescrito).
+  function cmFindAndReplace(cm, needle, replacement) {
+    try {
+      const val = cm.getValue();
+      const idx = val.indexOf(needle);
+      if (idx === -1) return false;
+      const doc = cm.getDoc ? cm.getDoc() : cm;
+      const from = doc.posFromIndex(idx);
+      const to = doc.posFromIndex(idx + needle.length);
+      cm.replaceRange(replacement, from, to);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   function cmInsert(cm, text) {
@@ -298,6 +344,16 @@
       }
     } else if (plain) insertAtCursor(el, placeholder);
     else richInsert(el, placeholder);
+    try {
+      const root = el && el.closest ? el.closest('.CodeMirror, .bytemd, .cm-editor') : null;
+      dbg('paste', {
+        target: el ? `${el.tagName}.${el.className}`.slice(0, 80) : String(el),
+        root: root ? `${root.tagName}.${root.className}`.slice(0, 80) : null,
+        plain,
+        cmFound: !!cm,
+        marker: !!marker,
+      });
+    } catch { /* noop */ }
     toast(`Enviando imagem${suffix}...`, false);
 
     let buffer;
@@ -326,33 +382,55 @@
     if (resp.ok && resp.url) {
       const tag = buildTag(resp.url, resp.format || 'html');
       let inserted = false;
+      let how = 'none';
       try {
-        if (cm) {
-          if (cmReplace(cm, marker, tag)) {
-            inserted = true;
-          } else {
-            // Marcador perdido (usuario apagou o placeholder?): insere no cursor.
-            try {
-              cm.replaceSelection(tag);
-              inserted = true;
-            } catch {
-              inserted = richReplace(el, placeholder, tag);
-            }
-          }
-          cmClearMarker(marker);
+        // Na hora da troca resolve a instancia VIVA de novo: o React pode
+        // ter remontado o editor durante o upload, obsoletando `cm`.
+        const live = getLiveCM(el);
+        const target = live.cm || cm;
+        if (target && cmReplace(target, live.same ? marker : null, tag)) {
+          inserted = true;
+          how = live.same ? 'cm-marker' : 'cm-marker-fresh';
+        } else if (target && cmFindAndReplace(target, placeholder, tag)) {
+          // Troca textual: funciona mesmo com o marcador morto (remount).
+          inserted = true;
+          how = 'cm-textsearch';
         } else if (plain) {
           replaceOnce(el, placeholder, tag);
           inserted = true;
+          how = 'plain';
         } else {
           inserted = richReplace(el, placeholder, tag);
+          how = inserted ? 'rich' : 'rich-failed';
         }
         if (!inserted) {
           insertIntoContentEditable(tag);
           inserted = true;
+          how = 'contenteditable-append';
+        }
+        if (target) {
+          try {
+            cmClearMarker(marker);
+          } catch { /* noop */ }
+        }
+        // Verificacao final contra o valor vivo do editor: o toast de
+        // sucesso so aparece quando a tag esta mesmo no texto.
+        if (inserted && how !== 'plain') {
+          try {
+            const check = getLiveCM(el);
+            if (check.cm && !check.cm.getValue().includes(tag)) {
+              inserted = false;
+              how += '+unverified';
+            }
+          } catch {
+            /* sem instancia viva para verificar — mantem o resultado */
+          }
         }
       } catch {
         inserted = false;
+        how += '+threw';
       }
+      dbg('replace', { how, inserted, cmAtPaste: !!cm, provider: resp.provider });
       if (inserted) {
         toast(`Imagem inserida via ${resp.provider}.`, false);
       } else {
