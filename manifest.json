@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "TabNews Paste Image",
+  "version": "1.0.0",
+  "description": "Cole imagens do clipboard no TabNews (Cmd+V / Ctrl+V): faz upload automático para um host gratuito e insere a tag <img>.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://catbox.moe/*",
+    "https://litterbox.catbox.moe/*",
+    "https://pomf.lain.la/*",
+    "https://pomf2.lain.la/*",
+    "https://uguu.se/*",
+    "https://n.uguu.se/*",
+    "https://tmpfiles.org/*",
+    "https://api.imgur.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.tabnews.com.br/*", "https://tabnews.com.br/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "TabNews Paste Image"
+  }
+}

@@ -1,0 +1,41 @@
+# TabNews Paste Image
+
+Extensão para Chrome (Manifest V3) que cola imagens do clipboard direto no comentário do [TabNews](https://www.tabnews.com.br):
+
+1. Copie uma imagem (print, `Cmd+Shift+Ctrl+4`, botão direito → Copiar imagem, etc.).
+2. Clique no campo de comentário do TabNews e pressione **Cmd+V** (macOS) ou **Ctrl+V**.
+3. A extensão faz upload da imagem para um host gratuito **sem precisar de conta** e insere automaticamente a tag `<img src="...">` onde estava o cursor.
+
+Paste de texto continua funcionando normalmente — a extensão só age quando o clipboard contém imagem.
+
+## Como funciona
+
+- `content.js` escuta o evento `paste` nos campos de texto do TabNews. Achou imagem? Cancela o paste, mostra `⏳ Enviando imagem...` no lugar do cursor e envia os bytes ao `background.js`.
+- `background.js` (service worker) faz o upload. O upload roda na extensão (não na página) porque hosts como o catbox.moe não liberam CORS para sites — com `host_permissions` a extensão pode chamar a API direto.
+- Ordem no modo **automático**: `catbox.moe` → `pomf.lain.la` → `uguu.se` → `litterbox` (72h) → `tmpfiles.org`. Se um estiver fora do ar (o catbox e o 0x0.st estavam pausados em nov/2026), tenta o próximo.
+- Opcional: configure um **Client-ID do Imgur** no popup para uploads permanentes via Imgur (grátis em <https://api.imgur.com/oauth2/addclient>, "Anonymous usage").
+- Formato de inserção configurável no popup: HTML `<img src="...">` (padrão) ou Markdown `![](...)`.
+
+## Instalação (modo desenvolvedor)
+
+1. Baixe/descompacte esta pasta (ou o `tabnews-paste-image.zip`).
+2. Abra `chrome://extensions`.
+3. Ative **Modo do desenvolvedor** (canto superior direito).
+4. Clique em **Carregar sem compactação** e selecione a pasta `tabnews-paste-image`.
+5. Abra um conteúdo do TabNews, clique em "Publicar novo comentário", cole a imagem com Cmd/Ctrl+V.
+
+Para atualizar após editar os arquivos: clique no ícone ⟳ (recarregar) do cartão da extensão em `chrome://extensions`.
+
+## Arquivos
+
+| Arquivo         | Papel                                                        |
+| --------------- | ------------------------------------------------------------ |
+| `manifest.json` | Manifesto MV3: permissões, content script, popup             |
+| `content.js`    | Intercepta o paste, placeholder, insere a tag, avisos (toast)|
+| `background.js` | Upload para os hosts gratuitos + fallback                    |
+| `popup.html/js` | Escolha de provedor, formato e Client-ID do Imgur            |
+
+## Limites
+
+- Imagens de até 20 MB (limite da extensão; cada host tem o seu).
+- Hosts temporários (uguu, litterbox, tmpfiles) apagam o arquivo depois de horas — para comentários permanentes, prefira catbox/pomf/Imgur.
