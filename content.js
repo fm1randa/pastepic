@@ -120,11 +120,18 @@
   // um textarea escondido: selecao no DOM visivel + execCommand NAO funciona.
   // O correto e usar a API do proprio editor. O marcador (markText) rastreia
   // o placeholder mesmo se o usuario continuar digitando durante o upload.
+  // O alvo do paste pode estar fora do `.CodeMirror` (ex.: wrapper do React):
+  // por isso a busca parte da raiz do editor (`.bytemd`, `.CodeMirror` ou
+  // `.cm-editor`) e so depois desce ate o wrapper — nao depende de o alvo
+  // estar dentro dele.
   function getCM5(el) {
     if (!el || !el.closest) return null;
+    const root = el.closest('.CodeMirror, .bytemd, .cm-editor');
+    if (!root) return null;
     const wrap =
-      el.closest('.CodeMirror') ||
-      (el.querySelector && el.querySelector('.CodeMirror'));
+      root.classList && root.classList.contains('CodeMirror')
+        ? root
+        : root.querySelector && root.querySelector('.CodeMirror');
     const cm = wrap && wrap.CodeMirror;
     if (cm && typeof cm.replaceRange === 'function' && typeof cm.markText === 'function') {
       return cm;
@@ -145,8 +152,8 @@
   }
 
   function cmReplace(cm, marker, replacement) {
-    cm.focus();
     try {
+      cm.focus();
       const pos = marker && typeof marker.find === 'function' ? marker.find() : null;
       if (pos) {
         cm.replaceRange(replacement, pos.from, pos.to);
@@ -184,31 +191,47 @@
   }
 
   function richReplace(el, needle, replacement) {
-    const root = richRoot(el);
-    focusEl(el);
-    const hit = root ? findTextNode(root, needle) : null;
-    if (!hit) return false; // placeholder sumiu (usuario apagou?) — nao mexe em nada
-    const range = document.createRange();
-    range.setStart(hit.node, hit.idx);
-    range.setEnd(hit.node, hit.idx + needle.length);
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-    if (replacement === '') {
-      return document.execCommand('delete', false, null);
+    try {
+      const root = richRoot(el);
+      focusEl(el);
+      const hit = root ? findTextNode(root, needle) : null;
+      if (!hit) return false; // placeholder sumiu (usuario apagou?) — nao mexe em nada
+      const range = document.createRange();
+      range.setStart(hit.node, hit.idx);
+      range.setEnd(hit.node, hit.idx + needle.length);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      // O no pode estar destacado do documento (ex.: linha virtual do
+      // CodeMirror quando a instancia nao foi encontrada): nesse caso o
+      // addRange lanca — propaga como falha em vez de quebrar o upload.
+      sel.addRange(range);
+      if (replacement === '') {
+        return document.execCommand('delete', false, null);
+      }
+      return document.execCommand('insertText', false, replacement);
+    } catch {
+      return false;
     }
-    return document.execCommand('insertText', false, replacement);
   }
 
   function insertIntoContentEditable(text) {
-    const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0) {
-      const range = sel.getRangeAt(0);
-      range.deleteContents();
-      range.insertNode(document.createTextNode(text));
-      range.collapse(false);
-    } else {
-      document.execCommand('insertText', false, text);
+    try {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(document.createTextNode(text));
+        range.collapse(false);
+      } else {
+        document.execCommand('insertText', false, text);
+      }
+    } catch {
+      try {
+        document.execCommand('insertText', false, text);
+      } catch {
+        /* sem mais fallbacks — quem chamou registra a falha */
+        throw new Error('uninsertable');
+      }
     }
   }
 
@@ -267,8 +290,13 @@
     const cm = plain ? null : getCM5(el);
     let marker = null;
 
-    if (cm) marker = cmInsert(cm, placeholder);
-    else if (plain) insertAtCursor(el, placeholder);
+    if (cm) {
+      try {
+        marker = cmInsert(cm, placeholder);
+      } catch {
+        marker = null; // instancia obsoleta? segue sem marcador
+      }
+    } else if (plain) insertAtCursor(el, placeholder);
     else richInsert(el, placeholder);
     toast(`Enviando imagem${suffix}...`, false);
 
@@ -297,19 +325,44 @@
 
     if (resp.ok && resp.url) {
       const tag = buildTag(resp.url, resp.format || 'html');
-      if (cm) {
-        if (!cmReplace(cm, marker, tag)) {
-          // Marcador perdido (usuario apagou o placeholder?): insere no cursor.
-          try {
-            cm.replaceSelection(tag);
-          } catch {
-            if (!richReplace(el, placeholder, tag)) insertIntoContentEditable(tag);
+      let inserted = false;
+      try {
+        if (cm) {
+          if (cmReplace(cm, marker, tag)) {
+            inserted = true;
+          } else {
+            // Marcador perdido (usuario apagou o placeholder?): insere no cursor.
+            try {
+              cm.replaceSelection(tag);
+              inserted = true;
+            } catch {
+              inserted = richReplace(el, placeholder, tag);
+            }
           }
+          cmClearMarker(marker);
+        } else if (plain) {
+          replaceOnce(el, placeholder, tag);
+          inserted = true;
+        } else {
+          inserted = richReplace(el, placeholder, tag);
         }
-        cmClearMarker(marker);
-      } else if (plain) replaceOnce(el, placeholder, tag);
-      else if (!richReplace(el, placeholder, tag)) insertIntoContentEditable(tag);
-      toast(`Imagem inserida via ${resp.provider}.`, false);
+        if (!inserted) {
+          insertIntoContentEditable(tag);
+          inserted = true;
+        }
+      } catch {
+        inserted = false;
+      }
+      if (inserted) {
+        toast(`Imagem inserida via ${resp.provider}.`, false);
+      } else {
+        // Upload OK mas nenhuma tecnica de insercao funcionou neste editor:
+        // nao mente "sucesso" — mostra a URL para colar manualmente.
+        try {
+          console.error('[TabNews Paste Image] upload OK, insercao falhou. Tag:', tag);
+        } catch { /* noop */ }
+        toast(`Upload ok via ${resp.provider}, mas nao inseri no editor. URL: ${resp.url}`, true);
+      }
     } else {
       clearPlaceholder(el, plain, cm, marker, placeholder);
       toast(`Falha no upload: ${resp.error || 'erro desconhecido'}`, true);
