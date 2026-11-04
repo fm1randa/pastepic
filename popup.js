@@ -19,6 +19,17 @@
     }
   );
 
+  // Botao "i": revela a explicacao do Client-ID so quando o usuario pede.
+  const helpBtn = document.getElementById('imgurHelp');
+  const helpText = document.getElementById('imgurHelpText');
+  if (helpBtn && helpText) {
+    helpBtn.addEventListener('click', () => {
+      const open = helpBtn.getAttribute('aria-expanded') === 'true';
+      helpBtn.setAttribute('aria-expanded', String(!open));
+      helpText.hidden = open;
+    });
+  }
+
   document.getElementById('save').addEventListener('click', () => {
     const checked = document.querySelector('input[name="format"]:checked');
     api().storage.sync.set(

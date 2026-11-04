@@ -28,6 +28,23 @@ try {
   }));
   check('defaults-loaded', defaults.provider === 'auto' && defaults.htmlChecked, JSON.stringify(defaults));
 
+  // Botao "i": explicacao do Imgur comeca oculta e alterna por clique.
+  const helpStart = await page.evaluate(() => ({
+    hidden: document.getElementById('imgurHelpText').hidden,
+    expanded: document.getElementById('imgurHelp').getAttribute('aria-expanded'),
+  }));
+  check('imgur-help-hidden', helpStart.hidden === true && helpStart.expanded === 'false', JSON.stringify(helpStart));
+  await page.click('#imgurHelp');
+  const helpOpen = await page.evaluate(() => ({
+    hidden: document.getElementById('imgurHelpText').hidden,
+    expanded: document.getElementById('imgurHelp').getAttribute('aria-expanded'),
+    mentionsClosed: document.getElementById('imgurHelpText').textContent.includes('fechou novos registros'),
+  }));
+  check('imgur-help-opens', helpOpen.hidden === false && helpOpen.expanded === 'true' && helpOpen.mentionsClosed, JSON.stringify({ ...helpOpen, mentionsClosed: undefined }));
+  await page.click('#imgurHelp');
+  const helpClosed = await page.evaluate(() => document.getElementById('imgurHelpText').hidden);
+  check('imgur-help-closes', helpClosed === true, `hidden=${helpClosed}`);
+
   await page.selectOption('#provider', 'pomf');
   await page.check('input[name="format"][value="markdown"]');
   await page.click('#save');

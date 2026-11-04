@@ -9,8 +9,19 @@
   select, input[type="text"] { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; }
   .hint { color: #6b7280; font-size: 12px; margin-top: 4px; }
   .row { margin: 6px 0; }
+  .label-row { display: flex; align-items: center; gap: 6px; margin: 10px 0 4px; }
+  .label-row label { margin: 0; }
   button { margin-top: 12px; width: 100%; padding: 8px; border: 0; border-radius: 8px; background: #111827; color: #fff; font-size: 13px; cursor: pointer; }
   button:hover { background: #1f2937; }
+  button.info {
+    box-sizing: border-box; width: 16px; height: 16px; margin: 0; padding: 0;
+    border: 1px solid #9ca3af; border-radius: 50%; background: transparent; color: #6b7280;
+    font: 600 10px/1 system-ui, sans-serif; display: inline-flex; align-items: center;
+    justify-content: center; flex: 0 0 auto;
+  }
+  button.info:hover { background: #f3f4f6; border-color: #6b7280; color: #111827; }
+  button.info[aria-expanded="true"] { background: #111827; border-color: #111827; color: #fff; }
+  [hidden] { display: none !important; }
   #status { margin-top: 8px; font-size: 12px; color: #047857; min-height: 16px; }
   a { color: #2563eb; }
 </style>
@@ -35,9 +46,14 @@
   <div class="row"><label style="font-weight:normal"><input type="radio" name="format" value="html" checked> HTML: <code>&lt;img src="..."&gt;</code></label></div>
   <div class="row"><label style="font-weight:normal"><input type="radio" name="format" value="markdown"> Markdown: <code>![](...)</code></label></div>
 
-  <label for="imgurClientId">Imgur Client-ID (opcional)</label>
+  <div class="label-row">
+    <label for="imgurClientId">Imgur Client-ID (opcional)</label>
+    <button type="button" class="info" id="imgurHelp" aria-expanded="false"
+      aria-controls="imgurHelpText" aria-label="Sobre o Imgur Client-ID"
+      title="Sobre o Imgur Client-ID">i</button>
+  </div>
   <input type="text" id="imgurClientId" placeholder="só se você já tem um" autocomplete="off" spellcheck="false">
-  <div class="hint">O Imgur <b>fechou novos registros de aplicativo</b> — a página de registro redireciona para a home e não há previsão de reabertura. Este campo serve apenas para quem já possui um Client-ID antigo (nesse caso, o Imgur entra primeiro no modo automático e é permanente).</div>
+  <div class="hint" id="imgurHelpText" hidden>O Imgur <b>fechou novos registros de aplicativo</b> — a página de registro redireciona para a home e não há previsão de reabertura. Este campo serve apenas para quem já possui um Client-ID antigo (nesse caso, o Imgur entra primeiro no modo automático e é permanente).</div>
 
   <button id="save">Salvar</button>
   <div id="status"></div>
