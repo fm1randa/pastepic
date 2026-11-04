@@ -11,7 +11,7 @@ function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
   return i === -1 ? fallback : process.argv[i + 1];
 }
-const PORT = arg('port', process.env.TNPI_VERIFY_PORT ?? '8931');
+const PORT = arg('port', process.env.PASTEPIC_VERIFY_PORT ?? '8931');
 const PROVIDER = arg('provider', 'auto');
 const FORMAT = arg('format', 'html');
 const OUT = arg('out', 'artifacts/paste-image-cm5');
@@ -59,11 +59,11 @@ try {
   // Real upload chain: can take a while (60s timeout per provider).
   // NOTE: waitForFunction resolves to a JSHandle — read the text afterwards.
   const toastArrived = await page.waitForFunction(
-    () => { const t = document.getElementById('tnpi-toast'); return !!(t && /Imagem inserida via|Falha no upload/.test(t.textContent)); },
+    () => { const t = document.getElementById('pastepic-toast'); return !!(t && /Imagem inserida via|Falha no upload/.test(t.textContent)); },
     null, { timeout: 360000 }
   ).then(() => true).catch(() => false);
   const toastText = toastArrived
-    ? await page.evaluate(() => document.getElementById('tnpi-toast').textContent)
+    ? await page.evaluate(() => document.getElementById('pastepic-toast').textContent)
     : null;
   check('success-toast', !!toastText && toastText.includes('Imagem inserida via'), toastText ?? 'no result toast within 6 min');
   usedProvider = (toastText && toastText.match(/via (\w+)/)?.[1]) || 'unknown';

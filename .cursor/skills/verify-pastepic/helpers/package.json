@@ -1,0 +1,10 @@
+{
+  "name": "verify-pastepic-helpers",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Verification harness for the PastePic extension (not shipped with the extension)",
+  "dependencies": {
+    "codemirror": "5.65.18",
+    "playwright": "1.64.1"
+  }
+}

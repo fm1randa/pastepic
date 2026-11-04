@@ -9,7 +9,7 @@ function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
   return i === -1 ? fallback : process.argv[i + 1];
 }
-const PORT = arg('port', process.env.TNPI_VERIFY_PORT ?? '8931');
+const PORT = arg('port', process.env.PASTEPIC_VERIFY_PORT ?? '8931');
 const OUT = arg('out', 'artifacts/oversize-guard');
 const RUN_ID = arg('run-id', 'manual');
 fs.mkdirSync(OUT, { recursive: true });
@@ -31,13 +31,13 @@ try {
       new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt }));
   });
   await page.waitForFunction(
-    () => document.getElementById('tnpi-toast') && document.getElementById('tnpi-toast').textContent.includes('maior que 20 MB'),
+    () => document.getElementById('pastepic-toast') && document.getElementById('pastepic-toast').textContent.includes('maior que 20 MB'),
     null, { timeout: 10000 }
   ).then(() => check('error-toast', true, 'size error shown'))
     .catch(() => check('error-toast', false, 'no size-error toast within 10s'));
   const st = await page.evaluate(() => ({
     value: window.__cm.getValue(),
-    uploads: window.__tnpiUploads.length,
+    uploads: window.__pastepicUploads.length,
   }));
   check('editor-clean', !st.value.includes('⏳') && !st.value.includes('<img'), `editor value ${JSON.stringify(st.value.slice(0, 80))}`);
   check('no-upload', st.uploads === 0, 'rejected before any upload');

@@ -1,20 +1,23 @@
-# TabNews Paste Image
+# PastePic
 
-Extensão para Chrome (Manifest V3) que cola imagens do clipboard direto nos comentários do [TabNews](https://www.tabnews.com.br) e nas aulas do [curso.dev](https://curso.dev):
+Extensão para Chrome (Manifest V3) que cola imagens do clipboard direto no editor de texto:
 
 1. Copie uma imagem (print, `Cmd+Shift+Ctrl+4`, botão direito → Copiar imagem, etc.).
-2. Clique no campo de comentário do TabNews e pressione **Cmd+V** (macOS) ou **Ctrl+V**.
-3. A extensão faz upload da imagem para um host gratuito **sem precisar de conta** e insere automaticamente a tag `<img src="...">` onde estava o cursor.
+2. Clique no editor e pressione **Cmd+V** (macOS) ou **Ctrl+V**.
+3. A extensão faz upload da imagem para um host gratuito **sem precisar de conta** e insere automaticamente a tag `<img src="...">` (ou Markdown) onde estava o cursor.
 
 Paste de texto continua funcionando normalmente — a extensão só age quando o clipboard contém imagem.
 
+Hoje vem habilitada para **TabNews** e **curso.dev**, onde foi testada de ponta a ponta. A lógica é genérica (qualquer `textarea`, `input` ou `contenteditable`; e editores ByteMD/CodeMirror 5 via ponte), então outros sites podem ser adicionados em `manifest.json` — veja "Adicionar outros sites".
+
 ## Compatibilidade com o editor (ByteMD/CodeMirror)
 
-O campo de comentário do TabNews e do curso.dev não é um `<textarea>` comum: é o editor ByteMD (CodeMirror 5 por baixo). A extensão detecta a instância do CodeMirror e insere o texto pela API nativa (`replaceRange` + `markText` para rastrear o placeholder mesmo se você continuar digitando), em vez de manipular `.value` (o que corromperia o editor) ou de buscar o texto no DOM (o CodeMirror fragmenta o conteúdo em vários nós). Em campos de texto comuns, mantém a inserção via `value` + eventos `input`/`change` (compatível com React); em CodeMirror 6/`contenteditable`, usa `execCommand('insertText')`.
+O campo de comentário do TabNews e do curso.dev não é um `<textarea>` comum: é o editor ByteMD (CodeMirror 5 por baixo). Content scripts do Chrome rodam num mundo isolado e **não enxergam** a propriedade `elemento.CodeMirror` que a página criou — por isso existe `page-bridge.js`, declarado com `"world": "MAIN"`, que roda como script da página e executa a API nativa do editor (`replaceRange`/`markText`). O `content.js` conversa com ele por eventos DOM com payload JSON. Em campos de texto comuns, a inserção é via `value` + eventos `input`/`change` (compatível com React); em CodeMirror 6/`contenteditable`, usa `execCommand('insertText')` como melhor esforço.
 
 ## Como funciona
 
-- `content.js` escuta o evento `paste` nos campos de texto do TabNews. Achou imagem? Cancela o paste, mostra `⏳ Enviando imagem...` no lugar do cursor e envia os bytes ao `background.js`.
+- `content.js` escuta o evento `paste` no documento. Achou imagem? Cancela o paste, mostra `⏳ Enviando imagem...` no lugar do cursor e envia os bytes ao `background.js`.
+- `page-bridge.js` (mundo da página) executa a troca do placeholder pela tag na instância real do CodeMirror 5.
 - `background.js` (service worker) faz o upload. O upload roda na extensão (não na página) porque hosts como o catbox.moe não liberam CORS para sites — com `host_permissions` a extensão pode chamar a API direto.
 - Ordem no modo **automático**: `catbox.moe` → `pomf.lain.la` → `uguu.se` → `litterbox` (72h) → `tmpfiles.org`. Se um estiver fora do ar (o catbox e o 0x0.st estavam pausados em nov/2026), tenta o próximo.
 - Opcional: se você possui um **Client-ID antigo do Imgur**, configure-o no popup para uploads permanentes via Imgur. Atenção: o Imgur **fechou novos registros de aplicativo** (a página `api.imgur.com/oauth2/addclient` redireciona para a home, sem previsão de reabertura), então não é mais possível criar um Client-ID novo.
@@ -22,26 +25,39 @@ O campo de comentário do TabNews e do curso.dev não é um `<textarea>` comum: 
 
 ## Instalação (modo desenvolvedor)
 
-1. Baixe/descompacte esta pasta (ou o `tabnews-paste-image.zip`).
+1. Baixe/descompacte esta pasta (ou o `pastepic.zip`).
 2. Abra `chrome://extensions`.
 3. Ative **Modo do desenvolvedor** (canto superior direito).
-4. Clique em **Carregar sem compactação** e selecione a pasta `tabnews-paste-image`.
+4. Clique em **Carregar sem compactação** e selecione a pasta `pastepic`.
 5. Abra um conteúdo do TabNews ou uma aula do curso.dev (logado), clique no campo de comentário e cole a imagem com Cmd/Ctrl+V.
 
 Para atualizar após editar os arquivos: clique no ícone ⟳ (recarregar) do cartão da extensão em `chrome://extensions`.
 
+## Adicionar outros sites
+
+A extensão já é genérica; o que limita são os domínios listados em `manifest.json`, nas duas entradas de `content_scripts` (a do `page-bridge.js` e a do `content.js`). Para habilitar um site novo:
+
+1. Acrescente o padrão de URL nas **duas** listas `matches` (ex.: `"https://exemplo.com/*"`).
+2. Recarregue a extensão em `chrome://extensions` e recarregue a página (o content script já injetado não é atualizado).
+3. Cole uma imagem e observe o console: `[PastePic] paste {...}` e `[PastePic] replace {...}` dizem qual caminho foi usado (`bridge-textsearch`, `plain`, `rich`, etc.).
+
+Se a inserção falhar, o toast mostra a URL para colar manualmente — e o `[PastePic] replace` com `inserted: false` indica que aquele editor precisa de adaptador. Funcionam bem hoje: ByteMD/CodeMirror 5 (via ponte), `<textarea>`/`<input>`. `contenteditable` e CodeMirror 6 são melhor esforço.
+
+Evite habilitar em sites que já tratam paste de imagem nativamente (GitHub, GitLab, Discourse, Notion): a extensão interceptaria o paste e mandaria para os hosts dela em vez do upload nativo do site.
+
 ## Arquivos
 
-| Arquivo         | Papel                                                        |
-| --------------- | ------------------------------------------------------------ |
-| `manifest.json` | Manifesto MV3: permissões, content script, popup             |
-| `content.js`    | Intercepta o paste, placeholder, insere a tag, avisos (toast)|
-| `background.js` | Upload para os hosts gratuitos + fallback                    |
-| `popup.html/js` | Escolha de provedor, formato e Client-ID do Imgur            |
+| Arquivo          | Papel                                                          |
+| ---------------- | -------------------------------------------------------------- |
+| `manifest.json`  | Manifesto MV3: permissões, content scripts, popup               |
+| `content.js`     | Intercepta o paste, placeholder, insere a tag, avisos (toast)   |
+| `page-bridge.js` | Roda no mundo da página e opera a API do CodeMirror 5 (ByteMD)  |
+| `background.js`  | Upload para os hosts gratuitos + fallback                       |
+| `popup.html/js`  | Escolha de provedor, formato e Client-ID do Imgur               |
 
 ## Limites e solução de problemas
 
 - Imagens de até 20 MB (limite da extensão; cada host tem o seu).
 - Hosts temporários (uguu, litterbox, tmpfiles) apagam o arquivo depois de horas — para comentários permanentes, prefira catbox/pomf/Imgur.
 - Cada tentativa de upload tem timeout de 60s: se um servidor travar, o modo automático passa para o próximo em vez de deixar o `⏳ Enviando imagem...` preso. Há ainda uma trava de segurança de 3 min no total.
-- Se o placeholder ficar preso ou der erro: abra `chrome://extensions`, clique em **recarregar (⟳)** no cartão da extensão e tente de novo. Para ver o erro exato, em `chrome://extensions` ative o modo desenvolvedor e clique em **service worker** no cartão da extensão para abrir o console (os erros saem com o prefixo `[TabNews Paste Image]`).
+- Se o placeholder ficar preso ou der erro: abra `chrome://extensions`, clique em **recarregar (⟳)** no cartão da extensão e tente de novo. Para ver o erro exato, em `chrome://extensions` ative o modo desenvolvedor e clique em **service worker** no cartão da extensão para abrir o console (os erros saem com o prefixo `[PastePic]`).

@@ -1,9 +1,9 @@
 ---
-name: verify-tabnews-paste-image
-description: Verify the TabNews Paste Image Chrome extension (paste-to-upload flow) using a local CodeMirror 5 fixture with the real content.js and background.js. Use when changing content.js, background.js, popup.*, or manifest.json, or when a paste/upload/insertion bug is reported.
+name: verify-pastepic
+description: Verify the PastePic Chrome extension (paste-to-upload flow) using a local CodeMirror 5 fixture with the real content.js and background.js. Use when changing content.js, background.js, popup.*, or manifest.json, or when a paste/upload/insertion bug is reported.
 ---
 
-# Verify TabNews Paste Image
+# Verify PastePic
 
 The app is a Chrome MV3 extension with no build step and no local server: a
 content script (`content.js`) intercepts image pastes in the ByteMD/CodeMirror 5
@@ -14,12 +14,12 @@ that reproduces the real editor stack (CodeMirror 5.65.x, same major version as
 the `bytemd@1.22.0` used by both sites).
 
 All paths below are relative to this skill directory
-(`.cursor/skills/verify-tabnews-paste-image/`).
+(`.cursor/skills/verify-pastepic/`).
 
 ## Launch
 
 ```sh
-./launch.sh [port]          # or TNPI_VERIFY_PORT=8931 ./launch.sh
+./launch.sh [port]          # or PASTEPIC_VERIFY_PORT=8931 ./launch.sh
 ```
 
 Starts `helpers/fixture-server.mjs` on 127.0.0.1 (default port 8931) and waits
@@ -50,7 +50,7 @@ Teardown (kills only the pid this run started; proof artifacts survive):
 Read-only gate. Run first whenever anything looks off; do not drive on FAIL:
 
 ```sh
-node helpers/doctor.mjs            # or TNPI_VERIFY_PORT=<port> node helpers/doctor.mjs
+node helpers/doctor.mjs            # or PASTEPIC_VERIFY_PORT=<port> node helpers/doctor.mjs
 ```
 
 Checks every fixture route returns 200, the real extension files exist and pass
@@ -97,7 +97,7 @@ Proof standards for every run:
 
 ## Isolation
 
-- One fixture server per port; concurrent runs set `TNPI_VERIFY_PORT` (and
+- One fixture server per port; concurrent runs set `PASTEPIC_VERIFY_PORT` (and
   `--port`/`--out`) to distinct values. `launch.sh` refuses a second server on
   the same directory state.
 - Each drive uses a fresh browser profile; no cookies, storage, or editor state

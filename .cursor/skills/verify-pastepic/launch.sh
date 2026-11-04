@@ -1,9 +1,9 @@
 #!/bin/sh
 # Launch the verification fixture server on 127.0.0.1 and wait until ready.
-# Usage: ./launch.sh [port]   (or TNPI_VERIFY_PORT=8931 ./launch.sh)
+# Usage: ./launch.sh [port]   (or PASTEPIC_VERIFY_PORT=8931 ./launch.sh)
 set -eu
 SKILL_DIR="$(cd "$(dirname "$0")" && pwd)"
-PORT="${1:-${TNPI_VERIFY_PORT:-8931}}"
+PORT="${1:-${PASTEPIC_VERIFY_PORT:-8931}}"
 PIDFILE="$SKILL_DIR/.fixture-server.pid"
 LOGFILE="$SKILL_DIR/.fixture-server.log"
 

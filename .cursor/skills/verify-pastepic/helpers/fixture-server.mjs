@@ -16,7 +16,7 @@ const CM_ROOT = path.join(here, 'node_modules', 'codemirror');
 
 const args = process.argv.slice(2);
 const portIdx = args.indexOf('--port');
-const PORT = Number(args[portIdx + 1] ?? process.env.TNPI_VERIFY_PORT ?? 8931);
+const PORT = Number(args[portIdx + 1] ?? process.env.PASTEPIC_VERIFY_PORT ?? 8931);
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json' };
 
@@ -39,10 +39,10 @@ function servePopupTest(res) {
   fs.readFile(path.join(EXT_ROOT, 'popup.html'), 'utf8', (err, html) => {
     if (err) return send(res, 404, 'popup.html missing', 'text/plain');
     const stub = `<script>
-window.__tnpiSaved = null;
+window.__pastepicSaved = null;
 window.chrome = { storage: { sync: {
   get(defaults, cb) { cb(Object.assign({}, defaults)); },
-  set(items, cb) { window.__tnpiSaved = items; if (cb) cb(); }
+  set(items, cb) { window.__pastepicSaved = items; if (cb) cb(); }
 } } };
 </scr` + `ipt>`;
     html = html.replace('<script src="popup.js"></script>', `${stub}<script src="/ext/popup.js"></script>`);
@@ -66,5 +66,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`TNPI-FIXTURE-READY port=${PORT}`);
+  console.log(`PASTEPIC-FIXTURE-READY port=${PORT}`);
 });

@@ -1,4 +1,4 @@
-// TabNews Paste Image — content script.
+// PastePic — content script.
 // Intercepta o paste (Cmd+V / Ctrl+V, menu, etc.) em campos de texto do
 // TabNews e do curso.dev. Se o clipboard contiver imagem, cancela o paste
 // normal, faz o upload via o background e insere a tag <img> (ou Markdown)
@@ -52,10 +52,10 @@
   }
 
   function toast(text, isError) {
-    let box = document.getElementById('tnpi-toast');
+    let box = document.getElementById('pastepic-toast');
     if (!box) {
       box = document.createElement('div');
-      box.id = 'tnpi-toast';
+      box.id = 'pastepic-toast';
       box.style.cssText =
         'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);' +
         'background:#111827;color:#f9fafb;font:14px/1.4 system-ui,sans-serif;' +
@@ -66,8 +66,8 @@
     box.style.background = isError ? '#991b1b' : '#111827';
     box.style.opacity = '1';
     box.textContent = text;
-    clearTimeout(box.__tnpiTimer);
-    box.__tnpiTimer = setTimeout(() => {
+    clearTimeout(box.__pastepicTimer);
+    box.__pastepicTimer = setTimeout(() => {
       box.style.opacity = '0';
     }, isError ? 6000 : 3500);
   }
@@ -122,7 +122,7 @@
   // o placeholder mesmo se o usuario continuar digitando durante o upload.
   function dbg(...args) {
     try {
-      console.info('[TNPI]', ...args);
+      console.info('[PastePic]', ...args);
     } catch {
       /* noop */
     }
@@ -132,12 +132,12 @@
   // Content scripts vivem num mundo isolado: veem o DOM, mas NAO veem
   // `elemento.CodeMirror` (propriedade JS criada pela pagina). Sem a ponte,
   // a API do editor e inalcancavel e so restam os fallbacks ruins.
-  const BRIDGE_REQ = 'tnpi-cm-request';
-  const BRIDGE_RES = 'tnpi-cm-result';
+  const BRIDGE_REQ = 'pastepic-cm-request';
+  const BRIDGE_RES = 'pastepic-cm-result';
 
   function bridgeCall(op, payload, timeoutMs) {
     return new Promise((resolve) => {
-      const id = `tnpi-${Math.random().toString(36).slice(2)}`;
+      const id = `pastepic-${Math.random().toString(36).slice(2)}`;
       let settled = false;
       const done = (value) => {
         if (settled) return;
@@ -467,10 +467,10 @@
 
     const ext = (image.type.split('/')[1] || 'png').split('+')[0];
     const resp = await sendToBackground({
-      type: 'TNPI_UPLOAD',
+      type: 'PASTEPIC_UPLOAD',
       bytes: Array.from(new Uint8Array(buffer)),
       mime: image.type || 'image/png',
-      name: `tabnews-${Date.now()}-${index}.${ext}`,
+      name: `pastepic-${Date.now()}-${index}.${ext}`,
     });
 
     if (resp.ok && resp.url) {
@@ -535,7 +535,7 @@
         // Upload OK mas nenhuma tecnica de insercao funcionou neste editor:
         // nao mente "sucesso" — mostra a URL para colar manualmente.
         try {
-          console.error('[TabNews Paste Image] upload OK, insercao falhou. Tag:', tag);
+          console.error('[PastePic] upload OK, insercao falhou. Tag:', tag);
         } catch { /* noop */ }
         toast(`Upload ok via ${resp.provider}, mas nao inseri no editor. URL: ${resp.url}`, true);
       }

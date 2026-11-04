@@ -11,7 +11,7 @@ function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
   return i === -1 ? fallback : process.argv[i + 1];
 }
-const PORT = arg('port', process.env.TNPI_VERIFY_PORT ?? '8931');
+const PORT = arg('port', process.env.PASTEPIC_VERIFY_PORT ?? '8931');
 const OUT = arg('out', 'artifacts/paste-text-passthrough');
 const RUN_ID = arg('run-id', 'manual');
 fs.mkdirSync(OUT, { recursive: true });
@@ -35,8 +35,8 @@ try {
     return {
       defaultPrevented: ev.defaultPrevented,
       value: el.value,
-      uploads: window.__tnpiUploads.length,
-      toast: !!document.getElementById('tnpi-toast'),
+      uploads: window.__pastepicUploads.length,
+      toast: !!document.getElementById('pastepic-toast'),
     };
   });
   check('not-prevented', r.defaultPrevented === false, 'text paste event not cancelled');

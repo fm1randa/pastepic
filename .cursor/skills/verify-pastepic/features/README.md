@@ -1,7 +1,7 @@
-# TabNews Paste Image verification map
+# PastePic verification map
 
 This directory is the maintained source for verifying the user-facing behavior
-of the TabNews Paste Image extension. Read this index before driving, then use
+of the PastePic extension. Read this index before driving, then use
 the matching feature file as the recipe.
 
 ## Baseline preconditions

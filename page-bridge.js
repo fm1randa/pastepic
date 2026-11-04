@@ -1,4 +1,4 @@
-// TabNews Paste Image — page-world bridge.
+// PastePic — page-world bridge.
 // Roda no mundo da PAGINA (manifest: "world": "MAIN"). Necessario porque um
 // content script comum roda num mundo isolado: ele ve os elementos do DOM,
 // mas NAO ve propriedades JS que a pagina criou neles — em particular
@@ -6,11 +6,11 @@
 // Por isso a manipulacao do editor acontece aqui, sob pedido do content.js,
 // que fala com este script por eventos DOM com payload JSON (string).
 (() => {
-  if (window.__tnpiBridgeReady) return;
-  window.__tnpiBridgeReady = true;
+  if (window.__pastepicBridgeReady) return;
+  window.__pastepicBridgeReady = true;
 
-  const REQ = 'tnpi-cm-request';
-  const RES = 'tnpi-cm-result';
+  const REQ = 'pastepic-cm-request';
+  const RES = 'pastepic-cm-result';
 
   function findCM() {
     let wraps;

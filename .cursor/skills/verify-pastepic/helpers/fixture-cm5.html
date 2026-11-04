@@ -8,7 +8,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>TNPI fixture (CodeMirror 5)</title>
+<title>PastePic fixture (CodeMirror 5)</title>
 <link rel="stylesheet" href="/codemirror/lib/codemirror.css">
 <script src="/codemirror/lib/codemirror.js"></script>
 <script src="/ext/background.js"></script>
@@ -17,7 +17,7 @@
 <textarea id="editor"></textarea>
 <textarea id="plain" rows="4" cols="60"></textarea>
 <script>
-window.__tnpiUploads = [];
+window.__pastepicUploads = [];
 (function () {
   const q = new URLSearchParams(location.search);
   const settings = {
@@ -33,9 +33,9 @@ window.__tnpiUploads = [];
     runtime: {
       lastError: null,
       sendMessage(payload, cb) {
-        window.__tnpiUploads.push({ t: Date.now(), name: payload && payload.name });
+        window.__pastepicUploads.push({ t: Date.now(), name: payload && payload.name });
         Promise.resolve()
-          .then(() => globalThis.__tnpi.handleUpload(payload))
+          .then(() => globalThis.__pastepic.handleUpload(payload))
           .then((resp) => cb(resp), (err) => cb({ ok: false, error: String((err && err.message) || err) }));
       },
     },

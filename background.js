@@ -1,4 +1,4 @@
-// TabNews Paste Image — background service worker (Manifest V3).
+// PastePic — background service worker (Manifest V3).
 // Recebe os bytes da imagem do content script e faz o upload para um
 // host gratuito sem necessidade de conta. O upload acontece aqui (e nao
 // na pagina) porque hosts como o catbox.moe nao enviam headers CORS,
@@ -41,7 +41,7 @@ function extFromMime(mime) {
 
 function makeFile(bytes, mime, name) {
   const blob = new Blob([new Uint8Array(bytes)], { type: mime });
-  const filename = name || `tabnews-${Date.now()}.${extFromMime(mime)}`;
+  const filename = name || `pastepic-${Date.now()}.${extFromMime(mime)}`;
   return new File([blob], filename, { type: mime });
 }
 
@@ -190,7 +190,7 @@ async function handleUpload(msg) {
   }
   const message = errors.join(' | ') || 'falha desconhecida';
   try {
-    console.error('[TabNews Paste Image] upload falhou:', message);
+    console.error('[PastePic] upload falhou:', message);
   } catch {
     /* noop */
   }
@@ -199,12 +199,12 @@ async function handleUpload(msg) {
 
 // Exportado para teste em Node (sem chrome definido, o listener nao e registrado).
 if (typeof globalThis !== 'undefined') {
-  globalThis.__tnpi = { UPLOADERS, makeFile, AUTO_ORDER, handleUpload };
+  globalThis.__pastepic = { UPLOADERS, makeFile, AUTO_ORDER, handleUpload };
 }
 
 if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-    if (!msg || msg.type !== 'TNPI_UPLOAD') return false;
+    if (!msg || msg.type !== 'PASTEPIC_UPLOAD') return false;
     handleUpload(msg)
       .then(sendResponse)
       .catch((err) => sendResponse({ ok: false, error: String(err?.message || err) }));

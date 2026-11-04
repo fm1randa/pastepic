@@ -1,5 +1,5 @@
-.cursor/skills/verify-tabnews-paste-image/helpers/node_modules/
-.cursor/skills/verify-tabnews-paste-image/helpers/package-lock.json
-.cursor/skills/verify-tabnews-paste-image/artifacts/
-.cursor/skills/verify-tabnews-paste-image/.fixture-server.pid
-.cursor/skills/verify-tabnews-paste-image/.fixture-server.log
+.cursor/skills/verify-pastepic/helpers/node_modules/
+.cursor/skills/verify-pastepic/helpers/package-lock.json
+.cursor/skills/verify-pastepic/artifacts/
+.cursor/skills/verify-pastepic/.fixture-server.pid
+.cursor/skills/verify-pastepic/.fixture-server.log

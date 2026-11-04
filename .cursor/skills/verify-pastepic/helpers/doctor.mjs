@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = path.dirname(here);
 const EXT_ROOT = path.resolve(SKILL_DIR, '..', '..', '..');
-const PORT = process.env.TNPI_VERIFY_PORT ?? '8931';
+const PORT = process.env.PASTEPIC_VERIFY_PORT ?? '8931';
 
 const checks = [];
 const check = (id, pass, detail) => { checks.push({ id, pass }); console.log(`doctor: ${id} ... ${pass ? 'ok' : 'FAIL'}${detail ? ` (${detail})` : ''}`); };
