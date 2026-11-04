@@ -10,7 +10,7 @@ Paste de texto continua funcionando normalmente — a extensão só age quando o
 
 ## Compatibilidade com o editor (ByteMD/CodeMirror)
 
-O campo de comentário do TabNews e do curso.dev não é um `<textarea>` comum: é o editor ByteMD (CodeMirror por baixo). A extensão detecta isso e insere o texto via `execCommand('insertText')` — o mesmo caminho que funciona no CodeMirror 5, 6 e em `contenteditable` — em vez de manipular `.value`, o que corromperia o estado do editor. Em campos de texto comuns, mantém a inserção via `value` + eventos `input`/`change` (compatível com React).
+O campo de comentário do TabNews e do curso.dev não é um `<textarea>` comum: é o editor ByteMD (CodeMirror 5 por baixo). A extensão detecta a instância do CodeMirror e insere o texto pela API nativa (`replaceRange` + `markText` para rastrear o placeholder mesmo se você continuar digitando), em vez de manipular `.value` (o que corromperia o editor) ou de buscar o texto no DOM (o CodeMirror fragmenta o conteúdo em vários nós). Em campos de texto comuns, mantém a inserção via `value` + eventos `input`/`change` (compatível com React); em CodeMirror 6/`contenteditable`, usa `execCommand('insertText')`.
 
 ## Como funciona
 

@@ -5,10 +5,12 @@
 // no cursor.
 //
 // Detalhe importante: o editor de comentarios das duas plataformas e o
-// ByteMD, que usa CodeMirror por baixo (um textarea escondido gerenciado
-// pelo editor). Manipular `.value` dele corromperia o estado, por isso
-// campos CodeMirror usam `execCommand('insertText')`, que funciona no
-// CodeMirror 5, 6 e em contenteditable comum.
+// ByteMD, que usa CodeMirror 5 por baixo (um textarea escondido gerenciado
+// pelo editor, com o texto visivel fragmentado em divs nao-editaveis).
+// Manipular `.value` corromperia o estado e `execCommand` com selecao no DOM
+// visivel nao tem efeito nele — por isso campos CodeMirror usam a API nativa
+// (replaceRange + markText para rastrear o placeholder). `execCommand` segue
+// como caminho para CodeMirror 6/contenteditable comum.
 (() => {
   'use strict';
 
@@ -113,7 +115,58 @@
     el.focus();
   }
 
-  // --- Caminho rico: CodeMirror 5/6, ByteMD, contenteditable ---
+  // --- Caminho CodeMirror 5 (ByteMD do TabNews/curso.dev) ---
+  // O CM5 renderiza o texto fragmentado em divs nao-editaveis e edita via
+  // um textarea escondido: selecao no DOM visivel + execCommand NAO funciona.
+  // O correto e usar a API do proprio editor. O marcador (markText) rastreia
+  // o placeholder mesmo se o usuario continuar digitando durante o upload.
+  function getCM5(el) {
+    if (!el || !el.closest) return null;
+    const wrap =
+      el.closest('.CodeMirror') ||
+      (el.querySelector && el.querySelector('.CodeMirror'));
+    const cm = wrap && wrap.CodeMirror;
+    if (cm && typeof cm.replaceRange === 'function' && typeof cm.markText === 'function') {
+      return cm;
+    }
+    return null;
+  }
+
+  function cmInsert(cm, text) {
+    cm.focus();
+    const cursor = cm.getCursor();
+    cm.replaceRange(text, cursor);
+    const to = { line: cursor.line, ch: cursor.ch + text.length };
+    try {
+      return cm.markText(cursor, to, { clearWhenEmpty: false });
+    } catch {
+      return null;
+    }
+  }
+
+  function cmReplace(cm, marker, replacement) {
+    cm.focus();
+    try {
+      const pos = marker && typeof marker.find === 'function' ? marker.find() : null;
+      if (pos) {
+        cm.replaceRange(replacement, pos.from, pos.to);
+        return true;
+      }
+    } catch {
+      /* cai no fallback */
+    }
+    return false;
+  }
+
+  function cmClearMarker(marker) {
+    try {
+      if (marker && typeof marker.clear === 'function') marker.clear();
+    } catch {
+      /* noop */
+    }
+  }
+
+  // --- Caminho rico generico: CodeMirror 6, contenteditable ---
 
   function findTextNode(root, needle) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -196,7 +249,12 @@
     });
   }
 
-  function clearPlaceholder(el, plain, placeholder) {
+  function clearPlaceholder(el, plain, cm, marker, placeholder) {
+    if (cm) {
+      if (!cmReplace(cm, marker, '')) richReplace(el, placeholder, '');
+      cmClearMarker(marker);
+      return;
+    }
     if (plain) replaceOnce(el, placeholder, '');
     else richReplace(el, placeholder, '');
   }
@@ -206,8 +264,11 @@
     const suffix = total > 1 ? ` ${index + 1}/${total}` : '';
     const placeholder = `⏳ Enviando imagem${suffix}… [${token}]`;
     const plain = isPlainField(el);
+    const cm = plain ? null : getCM5(el);
+    let marker = null;
 
-    if (plain) insertAtCursor(el, placeholder);
+    if (cm) marker = cmInsert(cm, placeholder);
+    else if (plain) insertAtCursor(el, placeholder);
     else richInsert(el, placeholder);
     toast(`Enviando imagem${suffix}...`, false);
 
@@ -215,13 +276,13 @@
     try {
       buffer = await image.arrayBuffer();
     } catch {
-      clearPlaceholder(el, plain, placeholder);
+      clearPlaceholder(el, plain, cm, marker, placeholder);
       toast('Nao foi possivel ler a imagem do clipboard.', true);
       return;
     }
 
     if (buffer.byteLength > 20 * 1024 * 1024) {
-      clearPlaceholder(el, plain, placeholder);
+      clearPlaceholder(el, plain, cm, marker, placeholder);
       toast('Imagem maior que 20 MB — reduza antes de colar.', true);
       return;
     }
@@ -236,11 +297,21 @@
 
     if (resp.ok && resp.url) {
       const tag = buildTag(resp.url, resp.format || 'html');
-      if (plain) replaceOnce(el, placeholder, tag);
+      if (cm) {
+        if (!cmReplace(cm, marker, tag)) {
+          // Marcador perdido (usuario apagou o placeholder?): insere no cursor.
+          try {
+            cm.replaceSelection(tag);
+          } catch {
+            if (!richReplace(el, placeholder, tag)) insertIntoContentEditable(tag);
+          }
+        }
+        cmClearMarker(marker);
+      } else if (plain) replaceOnce(el, placeholder, tag);
       else if (!richReplace(el, placeholder, tag)) insertIntoContentEditable(tag);
       toast(`Imagem inserida via ${resp.provider}.`, false);
     } else {
-      clearPlaceholder(el, plain, placeholder);
+      clearPlaceholder(el, plain, cm, marker, placeholder);
       toast(`Falha no upload: ${resp.error || 'erro desconhecido'}`, true);
     }
   }
