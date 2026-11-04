@@ -6,6 +6,26 @@
 
 const AUTO_ORDER = ['catbox', 'pomf', 'uguu', 'litterbox', 'tmpfiles'];
 
+// Nenhum fetch da extensao pode travar para sempre: sem timeout, um
+// servidor lento deixaria o placeholder "Enviando imagem..." preso no
+// editor. 60s por provedor; no modo automatico o proximo e tentado.
+const UPLOAD_TIMEOUT_MS = 60000;
+
+async function fetchT(url, opts) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), UPLOAD_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...opts, signal: ctrl.signal });
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      throw new Error(`tempo esgotado apos ${UPLOAD_TIMEOUT_MS / 1000}s sem resposta`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function extFromMime(mime) {
   const map = {
     'image/png': 'png',
@@ -37,7 +57,7 @@ async function uploadCatbox(file) {
   const form = new FormData();
   form.append('reqtype', 'fileupload');
   form.append('fileToUpload', file);
-  const res = await fetch('https://catbox.moe/user/api.php', { method: 'POST', body: form });
+  const res = await fetchT('https://catbox.moe/user/api.php', { method: 'POST', body: form });
   const text = await readTextSafe(res);
   if (res.ok && /^https?:\/\//.test(text)) return text;
   throw new Error(`catbox: ${text || `HTTP ${res.status}`}`);
@@ -46,7 +66,7 @@ async function uploadCatbox(file) {
 async function uploadPomf(file) {
   const form = new FormData();
   form.append('files[]', file);
-  const res = await fetch('https://pomf.lain.la/upload.php', { method: 'POST', body: form });
+  const res = await fetchT('https://pomf.lain.la/upload.php', { method: 'POST', body: form });
   let json;
   try {
     json = await res.json();
@@ -61,7 +81,7 @@ async function uploadPomf(file) {
 async function uploadUguu(file) {
   const form = new FormData();
   form.append('files[]', file);
-  const res = await fetch('https://uguu.se/upload.php?output=json', { method: 'POST', body: form });
+  const res = await fetchT('https://uguu.se/upload.php?output=json', { method: 'POST', body: form });
   let json;
   try {
     json = await res.json();
@@ -78,7 +98,7 @@ async function uploadLitterbox(file) {
   form.append('reqtype', 'fileupload');
   form.append('time', '72h');
   form.append('fileToUpload', file);
-  const res = await fetch('https://litterbox.catbox.moe/resources/internals/api.php', {
+  const res = await fetchT('https://litterbox.catbox.moe/resources/internals/api.php', {
     method: 'POST',
     body: form,
   });
@@ -90,7 +110,7 @@ async function uploadLitterbox(file) {
 async function uploadTmpfiles(file) {
   const form = new FormData();
   form.append('file', file);
-  const res = await fetch('https://tmpfiles.org/api/v1/upload', { method: 'POST', body: form });
+  const res = await fetchT('https://tmpfiles.org/api/v1/upload', { method: 'POST', body: form });
   let json;
   try {
     json = await res.json();
@@ -108,7 +128,7 @@ async function uploadImgur(file, clientId) {
   if (!clientId) throw new Error('imgur: configure um Client-ID no popup da extensao.');
   const form = new FormData();
   form.append('image', file);
-  const res = await fetch('https://api.imgur.com/3/image', {
+  const res = await fetchT('https://api.imgur.com/3/image', {
     method: 'POST',
     headers: { Authorization: `Client-ID ${clientId}` },
     body: form,
@@ -168,7 +188,13 @@ async function handleUpload(msg) {
       errors.push(`${name}: ${err?.message || err}`);
     }
   }
-  return { ok: false, error: errors.join(' | ') || 'falha desconhecida' };
+  const message = errors.join(' | ') || 'falha desconhecida';
+  try {
+    console.error('[TabNews Paste Image] upload falhou:', message);
+  } catch {
+    /* noop */
+  }
+  return { ok: false, error: message };
 }
 
 // Exportado para teste em Node (sem chrome definido, o listener nao e registrado).

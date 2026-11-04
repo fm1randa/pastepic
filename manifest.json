@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TabNews Paste Image",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Cole imagens do clipboard no TabNews e no curso.dev (Cmd+V / Ctrl+V): faz upload automático para um host gratuito e insere a tag <img>.",
   "permissions": ["storage"],
   "host_permissions": [

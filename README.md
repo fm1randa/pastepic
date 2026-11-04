@@ -39,7 +39,9 @@ Para atualizar após editar os arquivos: clique no ícone ⟳ (recarregar) do ca
 | `background.js` | Upload para os hosts gratuitos + fallback                    |
 | `popup.html/js` | Escolha de provedor, formato e Client-ID do Imgur            |
 
-## Limites
+## Limites e solução de problemas
 
 - Imagens de até 20 MB (limite da extensão; cada host tem o seu).
 - Hosts temporários (uguu, litterbox, tmpfiles) apagam o arquivo depois de horas — para comentários permanentes, prefira catbox/pomf/Imgur.
+- Cada tentativa de upload tem timeout de 60s: se um servidor travar, o modo automático passa para o próximo em vez de deixar o `⏳ Enviando imagem...` preso. Há ainda uma trava de segurança de 3 min no total.
+- Se o placeholder ficar preso ou der erro: abra `chrome://extensions`, clique em **recarregar (⟳)** no cartão da extensão e tente de novo. Para ver o erro exato, em `chrome://extensions` ative o modo desenvolvedor e clique em **service worker** no cartão da extensão para abrir o console (os erros saem com o prefixo `[TabNews Paste Image]`).

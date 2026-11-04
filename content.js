@@ -134,14 +134,13 @@
     const root = richRoot(el);
     focusEl(el);
     const hit = root ? findTextNode(root, needle) : null;
-    if (hit) {
-      const range = document.createRange();
-      range.setStart(hit.node, hit.idx);
-      range.setEnd(hit.node, hit.idx + needle.length);
-      const sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(range);
-    }
+    if (!hit) return false; // placeholder sumiu (usuario apagou?) — nao mexe em nada
+    const range = document.createRange();
+    range.setStart(hit.node, hit.idx);
+    range.setEnd(hit.node, hit.idx + needle.length);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
     if (replacement === '') {
       return document.execCommand('delete', false, null);
     }
@@ -165,26 +164,41 @@
     return `<img src="${url}">`;
   }
 
+  // Guarda final: se o background nao responder (service worker
+  // encerrado, resposta perdida), nao deixa o placeholder preso.
+  const RESPONSE_GUARD_MS = 180000;
+
   function sendToBackground(payload) {
     return new Promise((resolve) => {
+      let done = false;
+      const finish = (value) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        resolve(value);
+      };
+      const timer = setTimeout(
+        () => finish({ ok: false, error: 'tempo esgotado sem resposta — tente colar de novo' }),
+        RESPONSE_GUARD_MS
+      );
       try {
         const api = globalThis.chrome ?? globalThis.browser;
         api.runtime.sendMessage(payload, (resp) => {
           if (api.runtime.lastError) {
-            resolve({ ok: false, error: api.runtime.lastError.message });
+            finish({ ok: false, error: api.runtime.lastError.message });
             return;
           }
-          resolve(resp || { ok: false, error: 'sem resposta do background' });
+          finish(resp || { ok: false, error: 'sem resposta do background' });
         });
       } catch (err) {
-        resolve({ ok: false, error: String(err?.message || err) });
+        finish({ ok: false, error: String(err?.message || err) });
       }
     });
   }
 
   function clearPlaceholder(el, plain, placeholder) {
     if (plain) replaceOnce(el, placeholder, '');
-    else if (!richReplace(el, placeholder, '')) insertIntoContentEditable('');
+    else richReplace(el, placeholder, '');
   }
 
   async function uploadOne(el, image, index, total) {
