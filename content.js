@@ -168,6 +168,28 @@
     return { cm: null, same: false };
   }
 
+  // A instancia pode (re)aparecer segundos depois do paste (remount do
+  // React): espera ate timeoutMs em vez de desistir de primeira.
+  function getLiveCMWait(el, timeoutMs) {
+    return new Promise((resolve) => {
+      const t0 = Date.now();
+      const tick = () => {
+        let live;
+        try {
+          live = getLiveCM(el);
+        } catch {
+          live = { cm: null, same: false };
+        }
+        if (live.cm || Date.now() - t0 > timeoutMs) {
+          resolve(live.cm);
+          return;
+        }
+        setTimeout(tick, 250);
+      };
+      tick();
+    });
+  }
+
   // Troca por busca textual no valor atual: funciona mesmo quando o marcador
   // morreu (editor remontado, estado controlado reescrito).
   function cmFindAndReplace(cm, needle, replacement) {
@@ -384,13 +406,12 @@
       let inserted = false;
       let how = 'none';
       try {
-        // Na hora da troca resolve a instancia VIVA de novo: o React pode
-        // ter remontado o editor durante o upload, obsoletando `cm`.
-        const live = getLiveCM(el);
-        const target = live.cm || cm;
-        if (target && cmReplace(target, live.same ? marker : null, tag)) {
+        // Na hora da troca resolve a instancia VIVA de novo (ate 10s): o
+        // React pode remontar o editor durante o upload, obsoletando `cm`.
+        const target = (await getLiveCMWait(el, 10000)) || cm;
+        if (target && cmReplace(target, target === cm ? marker : null, tag)) {
           inserted = true;
-          how = live.same ? 'cm-marker' : 'cm-marker-fresh';
+          how = target === cm ? 'cm-marker' : 'cm-marker-fresh';
         } else if (target && cmFindAndReplace(target, placeholder, tag)) {
           // Troca textual: funciona mesmo com o marcador morto (remount).
           inserted = true;
