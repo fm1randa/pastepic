@@ -17,7 +17,7 @@ O campo de comentário do TabNews e do curso.dev não é um `<textarea>` comum: 
 - `content.js` escuta o evento `paste` nos campos de texto do TabNews. Achou imagem? Cancela o paste, mostra `⏳ Enviando imagem...` no lugar do cursor e envia os bytes ao `background.js`.
 - `background.js` (service worker) faz o upload. O upload roda na extensão (não na página) porque hosts como o catbox.moe não liberam CORS para sites — com `host_permissions` a extensão pode chamar a API direto.
 - Ordem no modo **automático**: `catbox.moe` → `pomf.lain.la` → `uguu.se` → `litterbox` (72h) → `tmpfiles.org`. Se um estiver fora do ar (o catbox e o 0x0.st estavam pausados em nov/2026), tenta o próximo.
-- Opcional: configure um **Client-ID do Imgur** no popup para uploads permanentes via Imgur (grátis em <https://api.imgur.com/oauth2/addclient>, "Anonymous usage").
+- Opcional: se você possui um **Client-ID antigo do Imgur**, configure-o no popup para uploads permanentes via Imgur. Atenção: o Imgur **fechou novos registros de aplicativo** (a página `api.imgur.com/oauth2/addclient` redireciona para a home, sem previsão de reabertura), então não é mais possível criar um Client-ID novo.
 - Formato de inserção configurável no popup: HTML `<img src="...">` (padrão) ou Markdown `![](...)`.
 
 ## Instalação (modo desenvolvedor)

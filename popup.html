@@ -26,7 +26,7 @@
     <option value="uguu">uguu.se (temporário)</option>
     <option value="litterbox">litterbox (temporário, até 72h)</option>
     <option value="tmpfiles">tmpfiles.org (temporário)</option>
-    <option value="imgur">Imgur (requer Client-ID)</option>
+    <option value="imgur">Imgur (só com Client-ID antigo)</option>
   </select>
   <div class="hint">No modo automático: catbox → pomf → uguu → litterbox → tmpfiles. Se o catbox estiver pausado, cai para o próximo.</div>
 
@@ -35,8 +35,8 @@
   <div class="row"><label style="font-weight:normal"><input type="radio" name="format" value="markdown"> Markdown: <code>![](...)</code></label></div>
 
   <label for="imgurClientId">Imgur Client-ID (opcional)</label>
-  <input type="text" id="imgurClientId" placeholder="ex.: 1a2b3c4d5e6f789" autocomplete="off" spellcheck="false">
-  <div class="hint">Grátis em <a href="https://api.imgur.com/oauth2/addclient" target="_blank" rel="noreferrer">api.imgur.com/oauth2/addclient</a> (escolha "Anonymous usage"). Com ele preenchido, o Imgur entra primeiro no modo automático e é permanente.</div>
+  <input type="text" id="imgurClientId" placeholder="só se você já tem um" autocomplete="off" spellcheck="false">
+  <div class="hint">O Imgur <b>fechou novos registros de aplicativo</b> — a página de registro redireciona para a home e não há previsão de reabertura. Este campo serve apenas para quem já possui um Client-ID antigo (nesse caso, o Imgur entra primeiro no modo automático e é permanente).</div>
 
   <button id="save">Salvar</button>
   <div id="status"></div>
