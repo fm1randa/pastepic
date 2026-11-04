@@ -1,14 +1,11 @@
 // PastePic — background service worker (Manifest V3).
-// Recebe os bytes da imagem do content script e faz o upload para um
-// host gratuito sem necessidade de conta. O upload acontece aqui (e nao
-// na pagina) porque hosts como o catbox.moe nao enviam headers CORS,
-// mas a requisicao parte da extensao (coberta pelo host_permissions).
+// Uploads must originate here, not in the page: catbox.moe and friends send no
+// CORS headers, while the extension reaches them under host_permissions.
 
 const AUTO_ORDER = ['catbox', 'pomf', 'uguu', 'litterbox', 'tmpfiles'];
 
-// Nenhum fetch da extensao pode travar para sempre: sem timeout, um
-// servidor lento deixaria o placeholder "Enviando imagem..." preso no
-// editor. 60s por provedor; no modo automatico o proximo e tentado.
+// No fetch may hang forever: without a timeout one slow host strands the
+// "Enviando imagem..." placeholder. 60s per provider, then auto-mode moves on.
 const UPLOAD_TIMEOUT_MS = 60000;
 
 async function fetchT(url, opts) {
@@ -119,7 +116,7 @@ async function uploadTmpfiles(file) {
   }
   let url = json?.data?.url;
   if (!url) throw new Error(`tmpfiles: ${JSON.stringify(json).slice(0, 200)}`);
-  // A API retorna a URL da pagina; o link direto usa /dl/.
+  // The API returns the page URL; embedding needs the /dl/ direct link.
   url = url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
   return url;
 }
@@ -173,7 +170,6 @@ async function handleUpload(msg) {
   let order;
   if (wanted === 'auto') {
     order = [...AUTO_ORDER];
-    // Com Client-ID configurado, o Imgur (permanente) entra primeiro.
     if (settings.imgurClientId) order.unshift('imgur');
   } else {
     order = [wanted];
@@ -197,7 +193,7 @@ async function handleUpload(msg) {
   return { ok: false, error: message };
 }
 
-// Exportado para teste em Node (sem chrome definido, o listener nao e registrado).
+// Exported for Node tests; the chrome guard below keeps the listener inert there.
 if (typeof globalThis !== 'undefined') {
   globalThis.__pastepic = { UPLOADERS, makeFile, AUTO_ORDER, handleUpload };
 }
@@ -208,6 +204,6 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
     handleUpload(msg)
       .then(sendResponse)
       .catch((err) => sendResponse({ ok: false, error: String(err?.message || err) }));
-    return true; // resposta assincrona
+    return true; // keeps the MV3 message channel open for the async response
   });
 }

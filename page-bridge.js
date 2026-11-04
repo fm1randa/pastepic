@@ -1,10 +1,9 @@
 // PastePic — page-world bridge.
-// Roda no mundo da PAGINA (manifest: "world": "MAIN"). Necessario porque um
-// content script comum roda num mundo isolado: ele ve os elementos do DOM,
-// mas NAO ve propriedades JS que a pagina criou neles — em particular
-// `elemento.CodeMirror`, que e onde o ByteMD guarda a instancia do editor.
-// Por isso a manipulacao do editor acontece aqui, sob pedido do content.js,
-// que fala com este script por eventos DOM com payload JSON (string).
+// Runs in the PAGE world (manifest: "world": "MAIN"). A normal content script
+// lives in an isolated world: it sees DOM nodes but not JS properties the page
+// set on them, and ByteMD stores the editor instance as `element.CodeMirror`.
+// Editor manipulation therefore happens here, requested by content.js over DOM
+// events carrying JSON strings.
 (() => {
   if (window.__pastepicBridgeReady) return;
   window.__pastepicBridgeReady = true;
@@ -71,7 +70,7 @@
         try {
           cm.markText(cur, { line: cur.line, ch: cur.ch + req.text.length }, { clearWhenEmpty: false });
         } catch {
-          /* marcador e opcional: a troca usa busca textual */
+          /* marker is optional: replacement resolves by text search */
         }
         reply({ ok: true, value: cm.getValue() });
         return;

@@ -1,16 +1,7 @@
 // PastePic — content script.
-// Intercepta o paste (Cmd+V / Ctrl+V, menu, etc.) em campos de texto do
-// TabNews e do curso.dev. Se o clipboard contiver imagem, cancela o paste
-// normal, faz o upload via o background e insere a tag <img> (ou Markdown)
-// no cursor.
-//
-// Detalhe importante: o editor de comentarios das duas plataformas e o
-// ByteMD, que usa CodeMirror 5 por baixo (um textarea escondido gerenciado
-// pelo editor, com o texto visivel fragmentado em divs nao-editaveis).
-// Manipular `.value` corromperia o estado e `execCommand` com selecao no DOM
-// visivel nao tem efeito nele — por isso campos CodeMirror usam a API nativa
-// (replaceRange + markText para rastrear o placeholder). `execCommand` segue
-// como caminho para CodeMirror 6/contenteditable comum.
+// Intercepts image pastes (Cmd+V / Ctrl+V, menu, etc.), uploads them through
+// the background worker, and inserts the resulting tag at the cursor. Text
+// pastes fall through untouched.
 (() => {
   'use strict';
 
@@ -25,9 +16,8 @@
     return false;
   }
 
-  // Campo de texto "de verdade" (manipular .value e disparar input funciona,
-  // inclusive em componentes controlados do React). Textareas dentro de
-  // CodeMirror/ByteMD NAO entram aqui.
+  // CodeMirror keeps a hidden textarea; writing .value corrupts its state, so
+  // fields inside an editor wrapper are never treated as plain inputs.
   function isPlainField(el) {
     const isField = el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement;
     if (!isField) return false;
@@ -72,8 +62,6 @@
     }, isError ? 6000 : 3500);
   }
 
-  // --- Caminho para textarea/input comum (com suporte a React) ---
-
   function setTextareaValue(el, value) {
     const proto =
       el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
@@ -115,11 +103,6 @@
     el.focus();
   }
 
-  // --- Caminho CodeMirror 5 (ByteMD do TabNews/curso.dev) ---
-  // O CM5 renderiza o texto fragmentado em divs nao-editaveis e edita via
-  // um textarea escondido: selecao no DOM visivel + execCommand NAO funciona.
-  // O correto e usar a API do proprio editor. O marcador (markText) rastreia
-  // o placeholder mesmo se o usuario continuar digitando durante o upload.
   function dbg(...args) {
     try {
       console.info('[PastePic]', ...args);
@@ -128,10 +111,11 @@
     }
   }
 
-  // --- Ponte para o mundo da pagina (page-bridge.js) ---
-  // Content scripts vivem num mundo isolado: veem o DOM, mas NAO veem
-  // `elemento.CodeMirror` (propriedade JS criada pela pagina). Sem a ponte,
-  // a API do editor e inalcancavel e so restam os fallbacks ruins.
+  // --- Bridge to the page world (page-bridge.js) ---
+  // Content scripts run in an isolated world: they see the DOM but not JS
+  // properties the page set on elements, and ByteMD stores the editor
+  // instance as `element.CodeMirror`. Without the bridge the native editor
+  // API is unreachable and only the lossy DOM fallbacks remain.
   const BRIDGE_REQ = 'pastepic-cm-request';
   const BRIDGE_RES = 'pastepic-cm-result';
 
@@ -168,7 +152,8 @@
     });
   }
 
-  // Espera o editor existir/estar vivo (o React remonta durante o upload).
+  // The React editor remounts during the upload, so the instance can vanish
+  // for seconds: poll instead of giving up on the first miss.
   async function bridgeReplace(needle, replacement, totalMs) {
     const deadline = Date.now() + (totalMs || 15000);
     let last = { ok: false, error: 'sem tentativa' };
@@ -176,17 +161,15 @@
       // eslint-disable-next-line no-await-in-loop
       last = await bridgeCall('replace', { needle, text: replacement }, 3000);
       if (last.ok) return last;
-      if (last.error === 'needle-missing') return last; // placeholder sumiu de vez
+      if (last.error === 'needle-missing') return last;
       // eslint-disable-next-line no-await-in-loop
       await new Promise((r) => setTimeout(r, 250));
     }
     return last;
   }
 
-  // O alvo do paste pode estar fora do `.CodeMirror` (ex.: wrapper do React):
-  // por isso a busca parte da raiz do editor (`.bytemd`, `.CodeMirror` ou
-  // `.cm-editor`) e so depois desce ate o wrapper — nao depende de o alvo
-  // estar dentro dele.
+  // The paste target can sit outside the `.CodeMirror` wrapper (React
+  // ancestors), so lookup starts at the editor root and descends.
   function getCM5(el) {
     if (!el || !el.closest) return null;
     const root = el.closest('.CodeMirror, .bytemd, .cm-editor');
@@ -207,9 +190,8 @@
     return null;
   }
 
-  // Na hora da troca, o alvo do paste pode estar obsoleto (o React remontou
-  // o editor durante o upload): resolve a instancia VIVA de novo, caindo
-  // para qualquer `.CodeMirror` do documento quando a raiz sumiu.
+  // After a remount the captured wrapper is dead: fall back to any live
+  // `.CodeMirror` in the document.
   function getLiveCM(el) {
     const fromTarget = getCM5(el);
     if (fromTarget) return { cm: fromTarget, same: true };
@@ -223,8 +205,6 @@
     return { cm: null, same: false };
   }
 
-  // A instancia pode (re)aparecer segundos depois do paste (remount do
-  // React): espera ate timeoutMs em vez de desistir de primeira.
   function getLiveCMWait(el, timeoutMs) {
     return new Promise((resolve) => {
       const t0 = Date.now();
@@ -245,8 +225,8 @@
     });
   }
 
-  // Troca por busca textual no valor atual: funciona mesmo quando o marcador
-  // morreu (editor remontado, estado controlado reescrito).
+  // Text search instead of the marker: the marker dies on remount and on
+  // controlled-state rewrites, this does not.
   function cmFindAndReplace(cm, needle, replacement) {
     try {
       const val = cm.getValue();
@@ -283,7 +263,7 @@
         return true;
       }
     } catch {
-      /* cai no fallback */
+      /* falls through to the text-search path */
     }
     return false;
   }
@@ -295,8 +275,6 @@
       /* noop */
     }
   }
-
-  // --- Caminho rico generico: CodeMirror 6, contenteditable ---
 
   function findTextNode(root, needle) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -318,15 +296,14 @@
       const root = richRoot(el);
       focusEl(el);
       const hit = root ? findTextNode(root, needle) : null;
-      if (!hit) return false; // placeholder sumiu (usuario apagou?) — nao mexe em nada
+      if (!hit) return false;
       const range = document.createRange();
       range.setStart(hit.node, hit.idx);
       range.setEnd(hit.node, hit.idx + needle.length);
       const sel = window.getSelection();
       sel.removeAllRanges();
-      // O no pode estar destacado do documento (ex.: linha virtual do
-      // CodeMirror quando a instancia nao foi encontrada): nesse caso o
-      // addRange lanca — propaga como falha em vez de quebrar o upload.
+      // CodeMirror's virtual line can already be detached from the document,
+      // and addRange throws then: surface it as failure, never crash the upload.
       sel.addRange(range);
       if (replacement === '') {
         return document.execCommand('delete', false, null);
@@ -352,7 +329,6 @@
       try {
         document.execCommand('insertText', false, text);
       } catch {
-        /* sem mais fallbacks — quem chamou registra a falha */
         throw new Error('uninsertable');
       }
     }
@@ -363,8 +339,8 @@
     return `<img src="${url}">`;
   }
 
-  // Guarda final: se o background nao responder (service worker
-  // encerrado, resposta perdida), nao deixa o placeholder preso.
+  // Final guard: an MV3 service worker can be killed mid-message, and without
+  // this the placeholder would stay in the editor forever.
   const RESPONSE_GUARD_MS = 180000;
 
   function sendToBackground(payload) {
@@ -415,16 +391,13 @@
     const placeholder = `⏳ Enviando imagem${suffix}… [${token}]`;
     const plain = isPlainField(el);
 
-    // 1) Editor do ByteMD: insere pela ponte do mundo da pagina.
-    let bridge = false;
-    if (!plain) {
+    let bridge = false;    if (!plain) {
       const probe = await bridgeCall('probe', {}, 3000);
       if (probe && probe.ok) {
         const ins = await bridgeCall('insert', { text: placeholder }, 5000);
         bridge = !!(ins && ins.ok);
       }
     }
-    // 2) Fallbacks: textarea/input comum, depois o melhor esforco no DOM.
     const cm = !plain && !bridge ? getCM5(el) : null;
     let marker = null;
     if (!bridge) {
@@ -478,17 +451,14 @@
       let inserted = false;
       let how = 'none';
       try {
-        // 1) Ponte (editor ByteMD/CM5 real, no mundo da pagina). Insiste por
-        // ate 15s: o React remonta o editor durante o upload e a instancia
-        // pode estar temporariamente ausente.
         if (bridge) {
           const swapped = await bridgeReplace(placeholder, tag, 15000);
           if (swapped && swapped.ok) {
             inserted = true;
             how = 'bridge-textsearch';
           } else if (swapped && swapped.error === 'needle-missing') {
-            // Placeholder sumiu (editor remontou e perdeu o texto?): insere
-            // a tag no cursor em vez de deixar so o aviso.
+            // The placeholder is gone (remount lost it): insert the tag at the
+            // cursor rather than leaving the upload orphaned.
             const ins = await bridgeCall('insert', { text: tag }, 5000);
             inserted = !!(ins && ins.ok);
             how = inserted ? 'bridge-insert' : 'bridge-insert-failed';
@@ -496,7 +466,6 @@
             how = `bridge-${swapped ? swapped.error : 'no-result'}`;
           }
         }
-        // 2) Fallbacks locais (mundo isolado).
         if (!inserted) {
           const target = (await getLiveCMWait(el, 3000)) || cm;
           if (target && cmFindAndReplace(target, placeholder, tag)) {
@@ -516,7 +485,7 @@
           inserted = true;
           how = 'contenteditable-append';
         }
-        // Verificacao final contra o valor vivo do editor.
+        // Never claim success from the pre-upload instance: re-read live text.
         if (inserted && how !== 'plain') {
           const check = await bridgeCall('probe', {}, 2000);
           if (check && check.ok && typeof check.value === 'string' && !check.value.includes(tag)) {
@@ -532,8 +501,8 @@
       if (inserted) {
         toast(`Imagem inserida via ${resp.provider}.`, false);
       } else {
-        // Upload OK mas nenhuma tecnica de insercao funcionou neste editor:
-        // nao mente "sucesso" — mostra a URL para colar manualmente.
+        // Upload succeeded but no insertion technique worked: never report
+        // success, hand the URL over instead.
         try {
           console.error('[PastePic] upload OK, insercao falhou. Tag:', tag);
         } catch { /* noop */ }
@@ -565,7 +534,7 @@
         }
       }
     }
-    if (!images.length) return; // paste de texto: segue o fluxo normal
+    if (!images.length) return;
 
     event.preventDefault();
     event.stopPropagation();

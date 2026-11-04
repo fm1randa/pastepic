@@ -1,4 +1,3 @@
-// Popup de configuracao — le/salva em chrome.storage.sync.
 (() => {
   const providerEl = document.getElementById('provider');
   const imgurEl = document.getElementById('imgurClientId');
@@ -19,7 +18,6 @@
     }
   );
 
-  // Botao "i": revela a explicacao do Client-ID so quando o usuario pede.
   const helpBtn = document.getElementById('imgurHelp');
   const helpText = document.getElementById('imgurHelpText');
   if (helpBtn && helpText) {
