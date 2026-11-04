@@ -128,6 +128,61 @@
     }
   }
 
+  // --- Ponte para o mundo da pagina (page-bridge.js) ---
+  // Content scripts vivem num mundo isolado: veem o DOM, mas NAO veem
+  // `elemento.CodeMirror` (propriedade JS criada pela pagina). Sem a ponte,
+  // a API do editor e inalcancavel e so restam os fallbacks ruins.
+  const BRIDGE_REQ = 'tnpi-cm-request';
+  const BRIDGE_RES = 'tnpi-cm-result';
+
+  function bridgeCall(op, payload, timeoutMs) {
+    return new Promise((resolve) => {
+      const id = `tnpi-${Math.random().toString(36).slice(2)}`;
+      let settled = false;
+      const done = (value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        document.removeEventListener(BRIDGE_RES, onResult, true);
+        resolve(value);
+      };
+      const onResult = (ev) => {
+        let data;
+        try {
+          data = JSON.parse(ev.detail);
+        } catch {
+          return;
+        }
+        if (!data || data.id !== id) return;
+        done(data);
+      };
+      const timer = setTimeout(() => done({ ok: false, error: 'bridge-timeout' }), timeoutMs || 3000);
+      document.addEventListener(BRIDGE_RES, onResult, true);
+      try {
+        document.dispatchEvent(
+          new CustomEvent(BRIDGE_REQ, { detail: JSON.stringify({ id, op, ...payload }) })
+        );
+      } catch (err) {
+        done({ ok: false, error: String(err?.message || err) });
+      }
+    });
+  }
+
+  // Espera o editor existir/estar vivo (o React remonta durante o upload).
+  async function bridgeReplace(needle, replacement, totalMs) {
+    const deadline = Date.now() + (totalMs || 15000);
+    let last = { ok: false, error: 'sem tentativa' };
+    while (Date.now() < deadline) {
+      // eslint-disable-next-line no-await-in-loop
+      last = await bridgeCall('replace', { needle, text: replacement }, 3000);
+      if (last.ok) return last;
+      if (last.error === 'needle-missing') return last; // placeholder sumiu de vez
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    return last;
+  }
+
   // O alvo do paste pode estar fora do `.CodeMirror` (ex.: wrapper do React):
   // por isso a busca parte da raiz do editor (`.bytemd`, `.CodeMirror` ou
   // `.cm-editor`) e so depois desce ate o wrapper — nao depende de o alvo
@@ -340,7 +395,11 @@
     });
   }
 
-  function clearPlaceholder(el, plain, cm, marker, placeholder) {
+  function clearPlaceholder(el, plain, bridge, cm, marker, placeholder) {
+    if (bridge) {
+      bridgeCall('delete', { needle: placeholder }, 3000).catch(() => {});
+      return;
+    }
     if (cm) {
       if (!cmReplace(cm, marker, '')) richReplace(el, placeholder, '');
       cmClearMarker(marker);
@@ -355,23 +414,36 @@
     const suffix = total > 1 ? ` ${index + 1}/${total}` : '';
     const placeholder = `⏳ Enviando imagem${suffix}… [${token}]`;
     const plain = isPlainField(el);
-    const cm = plain ? null : getCM5(el);
-    let marker = null;
 
-    if (cm) {
-      try {
-        marker = cmInsert(cm, placeholder);
-      } catch {
-        marker = null; // instancia obsoleta? segue sem marcador
+    // 1) Editor do ByteMD: insere pela ponte do mundo da pagina.
+    let bridge = false;
+    if (!plain) {
+      const probe = await bridgeCall('probe', {}, 3000);
+      if (probe && probe.ok) {
+        const ins = await bridgeCall('insert', { text: placeholder }, 5000);
+        bridge = !!(ins && ins.ok);
       }
-    } else if (plain) insertAtCursor(el, placeholder);
-    else richInsert(el, placeholder);
+    }
+    // 2) Fallbacks: textarea/input comum, depois o melhor esforco no DOM.
+    const cm = !plain && !bridge ? getCM5(el) : null;
+    let marker = null;
+    if (!bridge) {
+      if (cm) {
+        try {
+          marker = cmInsert(cm, placeholder);
+        } catch {
+          marker = null;
+        }
+      } else if (plain) insertAtCursor(el, placeholder);
+      else richInsert(el, placeholder);
+    }
     try {
       const root = el && el.closest ? el.closest('.CodeMirror, .bytemd, .cm-editor') : null;
       dbg('paste', {
         target: el ? `${el.tagName}.${el.className}`.slice(0, 80) : String(el),
         root: root ? `${root.tagName}.${root.className}`.slice(0, 80) : null,
         plain,
+        bridge,
         cmFound: !!cm,
         marker: !!marker,
       });
@@ -382,13 +454,13 @@
     try {
       buffer = await image.arrayBuffer();
     } catch {
-      clearPlaceholder(el, plain, cm, marker, placeholder);
+      clearPlaceholder(el, plain, bridge, cm, marker, placeholder);
       toast('Nao foi possivel ler a imagem do clipboard.', true);
       return;
     }
 
     if (buffer.byteLength > 20 * 1024 * 1024) {
-      clearPlaceholder(el, plain, cm, marker, placeholder);
+      clearPlaceholder(el, plain, bridge, cm, marker, placeholder);
       toast('Imagem maior que 20 MB — reduza antes de colar.', true);
       return;
     }
@@ -406,52 +478,57 @@
       let inserted = false;
       let how = 'none';
       try {
-        // Na hora da troca resolve a instancia VIVA de novo (ate 10s): o
-        // React pode remontar o editor durante o upload, obsoletando `cm`.
-        const target = (await getLiveCMWait(el, 10000)) || cm;
-        if (target && cmReplace(target, target === cm ? marker : null, tag)) {
-          inserted = true;
-          how = target === cm ? 'cm-marker' : 'cm-marker-fresh';
-        } else if (target && cmFindAndReplace(target, placeholder, tag)) {
-          // Troca textual: funciona mesmo com o marcador morto (remount).
-          inserted = true;
-          how = 'cm-textsearch';
-        } else if (plain) {
-          replaceOnce(el, placeholder, tag);
-          inserted = true;
-          how = 'plain';
-        } else {
-          inserted = richReplace(el, placeholder, tag);
-          how = inserted ? 'rich' : 'rich-failed';
+        // 1) Ponte (editor ByteMD/CM5 real, no mundo da pagina). Insiste por
+        // ate 15s: o React remonta o editor durante o upload e a instancia
+        // pode estar temporariamente ausente.
+        if (bridge) {
+          const swapped = await bridgeReplace(placeholder, tag, 15000);
+          if (swapped && swapped.ok) {
+            inserted = true;
+            how = 'bridge-textsearch';
+          } else if (swapped && swapped.error === 'needle-missing') {
+            // Placeholder sumiu (editor remontou e perdeu o texto?): insere
+            // a tag no cursor em vez de deixar so o aviso.
+            const ins = await bridgeCall('insert', { text: tag }, 5000);
+            inserted = !!(ins && ins.ok);
+            how = inserted ? 'bridge-insert' : 'bridge-insert-failed';
+          } else {
+            how = `bridge-${swapped ? swapped.error : 'no-result'}`;
+          }
         }
+        // 2) Fallbacks locais (mundo isolado).
         if (!inserted) {
+          const target = (await getLiveCMWait(el, 3000)) || cm;
+          if (target && cmFindAndReplace(target, placeholder, tag)) {
+            inserted = true;
+            how += '+cm-textsearch';
+          } else if (plain) {
+            replaceOnce(el, placeholder, tag);
+            inserted = true;
+            how += '+plain';
+          } else if (richReplace(el, placeholder, tag)) {
+            inserted = true;
+            how += '+rich';
+          }
+        }
+        if (!inserted && !plain && !bridge) {
           insertIntoContentEditable(tag);
           inserted = true;
           how = 'contenteditable-append';
         }
-        if (target) {
-          try {
-            cmClearMarker(marker);
-          } catch { /* noop */ }
-        }
-        // Verificacao final contra o valor vivo do editor: o toast de
-        // sucesso so aparece quando a tag esta mesmo no texto.
+        // Verificacao final contra o valor vivo do editor.
         if (inserted && how !== 'plain') {
-          try {
-            const check = getLiveCM(el);
-            if (check.cm && !check.cm.getValue().includes(tag)) {
-              inserted = false;
-              how += '+unverified';
-            }
-          } catch {
-            /* sem instancia viva para verificar — mantem o resultado */
+          const check = await bridgeCall('probe', {}, 2000);
+          if (check && check.ok && typeof check.value === 'string' && !check.value.includes(tag)) {
+            inserted = false;
+            how += '+unverified';
           }
         }
       } catch {
         inserted = false;
         how += '+threw';
       }
-      dbg('replace', { how, inserted, cmAtPaste: !!cm, provider: resp.provider });
+      dbg('replace', { how, inserted, bridge, cmAtPaste: !!cm, provider: resp.provider });
       if (inserted) {
         toast(`Imagem inserida via ${resp.provider}.`, false);
       } else {
@@ -463,7 +540,7 @@
         toast(`Upload ok via ${resp.provider}, mas nao inseri no editor. URL: ${resp.url}`, true);
       }
     } else {
-      clearPlaceholder(el, plain, cm, marker, placeholder);
+      clearPlaceholder(el, plain, bridge, cm, marker, placeholder);
       toast(`Falha no upload: ${resp.error || 'erro desconhecido'}`, true);
     }
   }
