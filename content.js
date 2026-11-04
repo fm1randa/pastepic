@@ -1,11 +1,16 @@
 // TabNews Paste Image — content script.
 // Intercepta o paste (Cmd+V / Ctrl+V, menu, etc.) em campos de texto do
-// TabNews. Se o clipboard contiver imagem, cancela o paste normal, faz o
-// upload via o background e insere a tag <img> (ou Markdown) no cursor.
+// TabNews e do curso.dev. Se o clipboard contiver imagem, cancela o paste
+// normal, faz o upload via o background e insere a tag <img> (ou Markdown)
+// no cursor.
+//
+// Detalhe importante: o editor de comentarios das duas plataformas e o
+// ByteMD, que usa CodeMirror por baixo (um textarea escondido gerenciado
+// pelo editor). Manipular `.value` dele corromperia o estado, por isso
+// campos CodeMirror usam `execCommand('insertText')`, que funciona no
+// CodeMirror 5, 6 e em contenteditable comum.
 (() => {
   'use strict';
-
-  const UPLOADING_LABEL = 'Enviando imagem...';
 
   function isEditable(el) {
     if (!el) return false;
@@ -14,7 +19,34 @@
       return ['text', 'search', 'url', null, ''].includes(el.type);
     }
     if (el.isContentEditable) return true;
+    if (el.closest && el.closest('.cm-content')) return true;
     return false;
+  }
+
+  // Campo de texto "de verdade" (manipular .value e disparar input funciona,
+  // inclusive em componentes controlados do React). Textareas dentro de
+  // CodeMirror/ByteMD NAO entram aqui.
+  function isPlainField(el) {
+    const isField = el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement;
+    if (!isField) return false;
+    if (el.closest && el.closest('.CodeMirror, .bytemd, .cm-editor')) return false;
+    return true;
+  }
+
+  function richRoot(el) {
+    if (el && el.closest) {
+      const root = el.closest('.bytemd, .CodeMirror, .cm-editor');
+      if (root) return root;
+    }
+    return el;
+  }
+
+  function focusEl(el) {
+    try {
+      el.focus();
+    } catch {
+      /* noop */
+    }
   }
 
   function toast(text, isError) {
@@ -38,8 +70,8 @@
     }, isError ? 6000 : 3500);
   }
 
-  // Insere texto na posicao do cursor funcionando com componentes
-  // controlados do React (caso do editor do TabNews).
+  // --- Caminho para textarea/input comum (com suporte a React) ---
+
   function setTextareaValue(el, value) {
     const proto =
       el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
@@ -81,6 +113,41 @@
     el.focus();
   }
 
+  // --- Caminho rico: CodeMirror 5/6, ByteMD, contenteditable ---
+
+  function findTextNode(root, needle) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      const idx = node.nodeValue.indexOf(needle);
+      if (idx !== -1) return { node, idx };
+    }
+    return null;
+  }
+
+  function richInsert(el, text) {
+    focusEl(el);
+    return document.execCommand('insertText', false, text);
+  }
+
+  function richReplace(el, needle, replacement) {
+    const root = richRoot(el);
+    focusEl(el);
+    const hit = root ? findTextNode(root, needle) : null;
+    if (hit) {
+      const range = document.createRange();
+      range.setStart(hit.node, hit.idx);
+      range.setEnd(hit.node, hit.idx + needle.length);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    if (replacement === '') {
+      return document.execCommand('delete', false, null);
+    }
+    return document.execCommand('insertText', false, replacement);
+  }
+
   function insertIntoContentEditable(text) {
     const sel = window.getSelection();
     if (sel && sel.rangeCount > 0) {
@@ -91,21 +158,6 @@
     } else {
       document.execCommand('insertText', false, text);
     }
-  }
-
-  function replaceInContentEditable(root, needle, replacement) {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    const nodes = [];
-    while (walker.nextNode()) nodes.push(walker.currentNode);
-    for (const node of nodes) {
-      const idx = node.nodeValue.indexOf(needle);
-      if (idx !== -1) {
-        node.nodeValue =
-          node.nodeValue.slice(0, idx) + replacement + node.nodeValue.slice(idx + needle.length);
-        return true;
-      }
-    }
-    return false;
   }
 
   function buildTag(url, format) {
@@ -130,27 +182,32 @@
     });
   }
 
-  async function uploadOne(el, image, index, total) {
-    const suffix = total > 1 ? ` ${index + 1}/${total}` : '';
-    const placeholder = `⏳ ${UPLOADING_LABEL}${suffix}`;
-    const useTextarea =
-      el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement;
+  function clearPlaceholder(el, plain, placeholder) {
+    if (plain) replaceOnce(el, placeholder, '');
+    else if (!richReplace(el, placeholder, '')) insertIntoContentEditable('');
+  }
 
-    if (useTextarea) insertAtCursor(el, placeholder);
-    else insertIntoContentEditable(placeholder);
+  async function uploadOne(el, image, index, total) {
+    const token = Math.random().toString(36).slice(2, 8);
+    const suffix = total > 1 ? ` ${index + 1}/${total}` : '';
+    const placeholder = `⏳ Enviando imagem${suffix}… [${token}]`;
+    const plain = isPlainField(el);
+
+    if (plain) insertAtCursor(el, placeholder);
+    else richInsert(el, placeholder);
     toast(`Enviando imagem${suffix}...`, false);
 
     let buffer;
     try {
       buffer = await image.arrayBuffer();
     } catch {
-      if (useTextarea) replaceOnce(el, placeholder, '');
+      clearPlaceholder(el, plain, placeholder);
       toast('Nao foi possivel ler a imagem do clipboard.', true);
       return;
     }
 
     if (buffer.byteLength > 20 * 1024 * 1024) {
-      if (useTextarea) replaceOnce(el, placeholder, '');
+      clearPlaceholder(el, plain, placeholder);
       toast('Imagem maior que 20 MB — reduza antes de colar.', true);
       return;
     }
@@ -165,12 +222,11 @@
 
     if (resp.ok && resp.url) {
       const tag = buildTag(resp.url, resp.format || 'html');
-      if (useTextarea) replaceOnce(el, placeholder, tag);
-      else if (!replaceInContentEditable(el, placeholder, tag)) insertIntoContentEditable(tag);
+      if (plain) replaceOnce(el, placeholder, tag);
+      else if (!richReplace(el, placeholder, tag)) insertIntoContentEditable(tag);
       toast(`Imagem inserida via ${resp.provider}.`, false);
     } else {
-      if (useTextarea) replaceOnce(el, placeholder, '');
-      else replaceInContentEditable(el, placeholder, '');
+      clearPlaceholder(el, plain, placeholder);
       toast(`Falha no upload: ${resp.error || 'erro desconhecido'}`, true);
     }
   }

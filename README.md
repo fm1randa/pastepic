@@ -1,12 +1,16 @@
 # TabNews Paste Image
 
-Extensão para Chrome (Manifest V3) que cola imagens do clipboard direto no comentário do [TabNews](https://www.tabnews.com.br):
+Extensão para Chrome (Manifest V3) que cola imagens do clipboard direto nos comentários do [TabNews](https://www.tabnews.com.br) e nas aulas do [curso.dev](https://curso.dev):
 
 1. Copie uma imagem (print, `Cmd+Shift+Ctrl+4`, botão direito → Copiar imagem, etc.).
 2. Clique no campo de comentário do TabNews e pressione **Cmd+V** (macOS) ou **Ctrl+V**.
 3. A extensão faz upload da imagem para um host gratuito **sem precisar de conta** e insere automaticamente a tag `<img src="...">` onde estava o cursor.
 
 Paste de texto continua funcionando normalmente — a extensão só age quando o clipboard contém imagem.
+
+## Compatibilidade com o editor (ByteMD/CodeMirror)
+
+O campo de comentário do TabNews e do curso.dev não é um `<textarea>` comum: é o editor ByteMD (CodeMirror por baixo). A extensão detecta isso e insere o texto via `execCommand('insertText')` — o mesmo caminho que funciona no CodeMirror 5, 6 e em `contenteditable` — em vez de manipular `.value`, o que corromperia o estado do editor. Em campos de texto comuns, mantém a inserção via `value` + eventos `input`/`change` (compatível com React).
 
 ## Como funciona
 
@@ -22,7 +26,7 @@ Paste de texto continua funcionando normalmente — a extensão só age quando o
 2. Abra `chrome://extensions`.
 3. Ative **Modo do desenvolvedor** (canto superior direito).
 4. Clique em **Carregar sem compactação** e selecione a pasta `tabnews-paste-image`.
-5. Abra um conteúdo do TabNews, clique em "Publicar novo comentário", cole a imagem com Cmd/Ctrl+V.
+5. Abra um conteúdo do TabNews ou uma aula do curso.dev (logado), clique no campo de comentário e cole a imagem com Cmd/Ctrl+V.
 
 Para atualizar após editar os arquivos: clique no ícone ⟳ (recarregar) do cartão da extensão em `chrome://extensions`.
 

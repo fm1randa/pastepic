@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "TabNews Paste Image",
-  "version": "1.0.0",
-  "description": "Cole imagens do clipboard no TabNews (Cmd+V / Ctrl+V): faz upload automático para um host gratuito e insere a tag <img>.",
+  "version": "1.1.0",
+  "description": "Cole imagens do clipboard no TabNews e no curso.dev (Cmd+V / Ctrl+V): faz upload automático para um host gratuito e insere a tag <img>.",
   "permissions": ["storage"],
   "host_permissions": [
     "https://catbox.moe/*",
@@ -19,7 +19,12 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://www.tabnews.com.br/*", "https://tabnews.com.br/*"],
+      "matches": [
+        "https://www.tabnews.com.br/*",
+        "https://tabnews.com.br/*",
+        "https://curso.dev/*",
+        "https://www.curso.dev/*"
+      ],
       "js": ["content.js"],
       "run_at": "document_idle"
     }
