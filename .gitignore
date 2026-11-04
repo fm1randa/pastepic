@@ -1,5 +1,5 @@
-.cursor/skills/verify-pastepic/helpers/node_modules/
-.cursor/skills/verify-pastepic/helpers/package-lock.json
-.cursor/skills/verify-pastepic/artifacts/
-.cursor/skills/verify-pastepic/.fixture-server.pid
-.cursor/skills/verify-pastepic/.fixture-server.log
+.agents/skills/verify-pastepic/helpers/node_modules/
+.agents/skills/verify-pastepic/helpers/package-lock.json
+.agents/skills/verify-pastepic/artifacts/
+.agents/skills/verify-pastepic/.fixture-server.pid
+.agents/skills/verify-pastepic/.fixture-server.log

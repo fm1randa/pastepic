@@ -14,7 +14,7 @@ that reproduces the real editor stack (CodeMirror 5.65.x, same major version as
 the `bytemd@1.22.0` used by both sites).
 
 All paths below are relative to this skill directory
-(`.cursor/skills/verify-pastepic/`).
+(`.agents/skills/verify-pastepic/`).
 
 ## Launch
 
