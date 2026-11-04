@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<!-- Verification scaffolding (NOT part of the extension): reproduces the real
+     editor stack — CodeMirror 5 (same major version as bytemd@1.22.0 used by
+     TabNews/curso.dev) driven through the REAL content.js and background.js.
+     The chrome.* stub below is scaffolding: storage returns query-param
+     settings (?provider=&format=&imgurClientId=), runtime.sendMessage runs the
+     REAL background.js upload chain over the real network. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TNPI fixture (CodeMirror 5)</title>
+<link rel="stylesheet" href="/codemirror/lib/codemirror.css">
+<script src="/codemirror/lib/codemirror.js"></script>
+<script src="/ext/background.js"></script>
+</head>
+<body>
+<textarea id="editor"></textarea>
+<textarea id="plain" rows="4" cols="60"></textarea>
+<script>
+window.__tnpiUploads = [];
+(function () {
+  const q = new URLSearchParams(location.search);
+  const settings = {
+    provider: q.get('provider') || 'auto',
+    format: q.get('format') || 'html',
+    imgurClientId: q.get('imgurClientId') || '',
+  };
+  window.chrome = {
+    storage: { sync: {
+      get(defaults, cb) { cb(Object.assign({}, defaults, settings)); },
+      set(items, cb) { Object.assign(settings, items); if (cb) cb(); },
+    } },
+    runtime: {
+      lastError: null,
+      sendMessage(payload, cb) {
+        window.__tnpiUploads.push({ t: Date.now(), name: payload && payload.name });
+        Promise.resolve()
+          .then(() => globalThis.__tnpi.handleUpload(payload))
+          .then((resp) => cb(resp), (err) => cb({ ok: false, error: String((err && err.message) || err) }));
+      },
+    },
+  };
+})();
+</script>
+<script src="/ext/content.js"></script>
+<script>
+window.__cm = CodeMirror.fromTextArea(document.getElementById('editor'), { lineNumbers: false });
+window.__cm.setValue('');
+</script>
+</body>
+</html>
