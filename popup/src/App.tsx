@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DEFAULTS, PROVIDERS, loadSettings, saveSettings, type Format, type Settings } from "@/settings"
 
 const fieldLabel = "font-heading text-xs font-normal tracking-wider"
-const hint = "text-xs leading-normal text-muted-foreground"
 
 function Help({ label, icon, children }: { label: string; icon: ReactNode; children: ReactNode }) {
   const id = useId()
@@ -48,10 +47,7 @@ export function App() {
 
   return (
     <main className="flex w-[312px] flex-col gap-2.5 px-4 pt-3.5 pb-4 text-[13px] leading-normal">
-      <header className="flex flex-col gap-1">
-        <h1 className="font-heading text-base">PastePic</h1>
-        <p className={hint}>Cole uma imagem no editor: upload + tag no cursor.</p>
-      </header>
+      <h1 className="font-heading text-base">PastePic</h1>
 
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center gap-1">
