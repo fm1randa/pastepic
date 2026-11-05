@@ -39,9 +39,9 @@ A extensão já é genérica; o que limita são os domínios listados em `manife
 
 1. Acrescente o padrão de URL nas **duas** listas `matches` (ex.: `"https://exemplo.com/*"`).
 2. Recarregue a extensão em `chrome://extensions` e recarregue a página (o content script já injetado não é atualizado).
-3. Cole uma imagem e observe o console: `[PastePic] paste {...}` e `[PastePic] replace {...}` dizem qual caminho foi usado (`bridge-textsearch`, `plain`, `rich`, etc.).
+3. Cole uma imagem e observe o console: `[PastePic] swap {...}` diz qual `kind` de editor foi usado (`cm5`, `plain`, `contenteditable`) e o código do resultado.
 
-Se a inserção falhar, o toast mostra a URL para colar manualmente — e o `[PastePic] replace` com `inserted: false` indica que aquele editor precisa de adaptador. Funcionam bem hoje: ByteMD/CodeMirror 5 (via ponte), `<textarea>`/`<input>`. `contenteditable` e CodeMirror 6 são melhor esforço.
+Se a inserção falhar, o toast mostra a URL para colar manualmente. Editores suportados hoje: ByteMD/CodeMirror 5 (via ponte), `<textarea>`/`<input>` e `contenteditable`. CodeMirror 6, ProseMirror/TipTap e Monaco são reconhecidos mas respondem `unsupported` — o toast avisa e nada é escrito no lugar errado.
 
 Evite habilitar em sites que já tratam paste de imagem nativamente (GitHub, GitLab, Discourse, Notion): a extensão interceptaria o paste e mandaria para os hosts dela em vez do upload nativo do site.
 
@@ -50,8 +50,10 @@ Evite habilitar em sites que já tratam paste de imagem nativamente (GitHub, Git
 | Arquivo          | Papel                                                          |
 | ---------------- | -------------------------------------------------------------- |
 | `manifest.json`  | Manifesto MV3: permissões, content scripts, popup               |
-| `content.js`     | Intercepta o paste, placeholder, insere a tag, avisos (toast)   |
-| `page-bridge.js` | Roda no mundo da página e opera a API do CodeMirror 5 (ByteMD)  |
+| `content.js`     | Intercepta o paste, abre a sessão, faz upload, avisa (toast)     |
+| `editor-session.js` | Sessão de edição: âncora, retry da troca, `release` verificado |
+| `page-bridge.js` | Mundo da página: detecção de editor, adapters, único escritor   |
+| `limits.js`      | Cadeia de provedores e timeouts (a trava de resposta é derivada) |
 | `background.js`  | Upload para os hosts gratuitos + fallback                       |
 | `popup.html/js`  | Escolha de provedor, formato e Client-ID do Imgur               |
 

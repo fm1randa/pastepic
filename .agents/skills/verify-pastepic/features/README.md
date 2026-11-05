@@ -36,6 +36,7 @@ handles, required state, commands, and observable proof.
 ## Features
 
 - [Paste image into the comment editor](./paste-image-cm5.md) covers image paste, placeholder, upload fallback, tag insertion, and expiry-safe proof.
+- [Two editors on one page](./two-editors.md) covers target resolution when several editors are mounted.
 - [Text paste passes through](./paste-text-passthrough.md) covers non-interference with normal typing/pasting.
 - [Provider and format settings](./provider-format-settings.md) covers the popup choices and their persistence.
 - [Oversize image rejected](./oversize-guard.md) covers the 20MB guard, error feedback, and a clean editor.

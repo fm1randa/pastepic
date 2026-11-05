@@ -65,6 +65,7 @@ Chromium with a FRESH profile, performs the user path, writes
 
 ```sh
 node helpers/drive-paste-image.mjs --run-id <id> [--provider auto] [--format html] [--out artifacts/paste-image-cm5]
+node helpers/drive-two-editors.mjs --run-id <id> [--out artifacts/two-editors]
 node helpers/drive-passthrough.mjs --run-id <id> [--out artifacts/paste-text-passthrough]
 node helpers/drive-oversize.mjs --run-id <id> [--out artifacts/oversize-guard]
 node helpers/drive-popup-settings.mjs --run-id <id> [--out artifacts/provider-format-settings]

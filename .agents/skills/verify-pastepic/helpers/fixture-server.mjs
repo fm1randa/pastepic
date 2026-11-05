@@ -59,7 +59,7 @@ const server = http.createServer((req, res) => {
   if (p.startsWith('/codemirror/')) return serveFile(res, path.join(CM_ROOT, p.slice('/codemirror/'.length)));
   if (p.startsWith('/ext/')) {
     const name = p.slice('/ext/'.length);
-    if (!['content.js', 'background.js', 'popup.js', 'page-bridge.js'].includes(name)) return send(res, 403, 'forbidden', 'text/plain');
+    if (!['content.js', 'background.js', 'popup.js', 'page-bridge.js', 'editor-session.js', 'limits.js'].includes(name)) return send(res, 403, 'forbidden', 'text/plain');
     return serveFile(res, path.join(EXT_ROOT, name));
   }
   send(res, 404, 'not found', 'text/plain');

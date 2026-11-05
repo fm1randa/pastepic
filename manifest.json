@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PastePic",
-  "version": "1.3.1",
+  "version": "2.0.0",
   "description": "Cole imagens do clipboard (Cmd+V / Ctrl+V) em editores web: faz upload automático para um host gratuito e insere a tag <img> ou Markdown no cursor.",
   "permissions": ["storage"],
   "host_permissions": [
@@ -36,7 +36,7 @@
         "https://curso.dev/*",
         "https://www.curso.dev/*"
       ],
-      "js": ["content.js"],
+      "js": ["limits.js", "editor-session.js", "content.js"],
       "run_at": "document_idle"
     }
   ],

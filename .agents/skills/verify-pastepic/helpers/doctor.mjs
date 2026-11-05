@@ -29,17 +29,17 @@ function get(pathname) {
   });
 }
 
-const routes = ['/health', '/fixture-cm5.html', '/codemirror/lib/codemirror.js', '/codemirror/lib/codemirror.css', '/ext/content.js', '/ext/background.js', '/popup-test.html'];
+const routes = ['/health', '/fixture-cm5.html', '/codemirror/lib/codemirror.js', '/codemirror/lib/codemirror.css', '/ext/content.js', '/ext/background.js', '/ext/page-bridge.js', '/ext/editor-session.js', '/ext/limits.js', '/popup-test.html'];
 for (const r of routes) {
   const res = await get(r);
   check(`route ${r}`, res.status === 200 && res.bytes > 0, `HTTP ${res.status}${res.error ? ` ${res.error}` : ''}`);
 }
 
-for (const f of ['content.js', 'background.js', 'popup.js', 'manifest.json']) {
+for (const f of ['content.js', 'background.js', 'popup.js', 'page-bridge.js', 'editor-session.js', 'limits.js', 'manifest.json']) {
   const exists = fs.existsSync(path.join(EXT_ROOT, f));
   check(`ext-file ${f}`, exists, exists ? '' : 'missing from repo root');
 }
-for (const f of ['content.js', 'background.js', 'popup.js']) {
+for (const f of ['content.js', 'background.js', 'popup.js', 'page-bridge.js', 'editor-session.js', 'limits.js']) {
   const r = spawnSync('node', ['--check', path.join(EXT_ROOT, f)]);
   check(`syntax ${f}`, r.status === 0, r.status === 0 ? '' : 'node --check failed');
 }

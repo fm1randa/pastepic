@@ -2,11 +2,18 @@
 // Uploads must originate here, not in the page: catbox.moe and friends send no
 // CORS headers, while the extension reaches them under host_permissions.
 
-const AUTO_ORDER = ['catbox', 'pomf', 'uguu', 'litterbox', 'tmpfiles'];
+// limits.js is the single source of truth for the chain and its timeouts; the
+// guard in content.js is derived from the same numbers.
+if (typeof importScripts === 'function') importScripts('limits.js');
+const LIMITS = globalThis.PastePicLimits || {
+  autoOrder: ['catbox', 'pomf', 'uguu', 'litterbox', 'tmpfiles'],
+  uploadTimeoutMs: 60000,
+};
+const AUTO_ORDER = LIMITS.autoOrder;
 
 // No fetch may hang forever: without a timeout one slow host strands the
 // "Enviando imagem..." placeholder. 60s per provider, then auto-mode moves on.
-const UPLOAD_TIMEOUT_MS = 60000;
+const UPLOAD_TIMEOUT_MS = LIMITS.uploadTimeoutMs;
 
 async function fetchT(url, opts) {
   const ctrl = new AbortController();

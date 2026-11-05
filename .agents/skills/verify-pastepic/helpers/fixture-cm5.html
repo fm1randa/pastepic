@@ -11,9 +11,11 @@
 <title>PastePic fixture (CodeMirror 5)</title>
 <link rel="stylesheet" href="/codemirror/lib/codemirror.css">
 <script src="/codemirror/lib/codemirror.js"></script>
+<script src="/ext/limits.js"></script>
 <script src="/ext/background.js"></script>
 </head>
 <body>
+<textarea id="editor2"></textarea>
 <textarea id="editor"></textarea>
 <textarea id="plain" rows="4" cols="60"></textarea>
 <script>
@@ -43,8 +45,15 @@ window.__pastepicUploads = [];
 })();
 </script>
 <script src="/ext/page-bridge.js"></script>
+<script src="/ext/editor-session.js"></script>
 <script src="/ext/content.js"></script>
 <script>
+// `?two=1` mounts a SECOND CodeMirror before the main one. The page-bridge
+// must still target the editor that received the paste, not the first in DOM.
+if (new URLSearchParams(location.search).get('two') === '1') {
+  window.__cmOther = CodeMirror.fromTextArea(document.getElementById('editor2'), { lineNumbers: false });
+  window.__cmOther.setValue('other editor text');
+}
 window.__cm = CodeMirror.fromTextArea(document.getElementById('editor'), { lineNumbers: false });
 window.__cm.setValue('');
 </script>
