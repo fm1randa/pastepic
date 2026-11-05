@@ -8,7 +8,7 @@ Imgur Client-ID; saving persists the choices and confirms with "Salvo!".
 
 - `settings-defaults` fresh popup shows automatic provider + HTML format.
 - `settings-save` choosing host + format persists all three fields and confirms.
-- `settings-help-tooltips` the "i" and "?" buttons show their notes in a tooltip on hover or keyboard focus; no note is visible on open.
+- `settings-help-tooltips` the help buttons (automatic chain, Imgur, link reuse) show their notes in a tooltip on hover or keyboard focus; no note is visible on open.
 
 ## How to get to it (user POV)
 
@@ -25,7 +25,7 @@ Preconditions:
 - No network needed.
 
 - Precondition: `npm run build` at the repo root.
-- **Defaults, help tooltips, save, round trip.** Run `node helpers/drive-popup-settings.mjs --run-id <id> --out artifacts/popup-<id>`. Controls are found by role and accessible name. Checks: `defaults-loaded` (provider `auto`, HTML radio checked), `help-hidden-at-start`, `imgur-help-on-hover` (tooltip mentions "fechou novos registros"), `imgur-help-closes`, `reuse-option-off-by-default`, `reuse-help-on-focus` (keyboard focus shows only the reuse note), `choices-shown` (pomf picked by clicking the Select), `color-scheme-follows-system`, `saved-feedback` ("Salvo!"), `settings-persisted` (exactly `{provider:'pomf', format:'markdown', imgurClientId:'', sameProviderOnly:true}`), `closes-after-save`, `no-page-errors`, `stored-values-load` (litterbox + markdown from storage), `round-trip-saves-trimmed`, `unknown-stored-values-fall-back`. Writes `screenshot-light.png`, `screenshot-dark.png`, `screenshot-tooltip-reuse.png` and `screenshot-tooltip-imgur.png`.
+- **Defaults, help tooltips, save, round trip.** Run `node helpers/drive-popup-settings.mjs --run-id <id> --out artifacts/popup-<id>`. Controls are found by role and accessible name. Checks: `defaults-loaded` (provider `auto`, HTML radio checked), `help-hidden-at-start`, `provider-help-on-hover` (tooltip lists the automatic chain), `imgur-help-on-hover` (tooltip mentions "fechou novos registros"), `imgur-help-closes`, `reuse-option-off-by-default`, `reuse-help-on-focus` (keyboard focus shows only the reuse note), `choices-shown` (pomf picked by clicking the Select), `color-scheme-follows-system`, `saved-feedback` ("Salvo!"), `settings-persisted` (exactly `{provider:'pomf', format:'markdown', imgurClientId:'', sameProviderOnly:true}`), `closes-after-save`, `no-page-errors`, `stored-values-load` (litterbox + markdown from storage), `round-trip-saves-trimmed`, `unknown-stored-values-fall-back`. Writes `screenshot-light.png`, `screenshot-dark.png`, `screenshot-tooltip-reuse.png`, `screenshot-tooltip-imgur.png` and `screenshot-tooltip-provider.png`.
 
 ## Gotchas
 

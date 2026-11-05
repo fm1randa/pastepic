@@ -21,7 +21,7 @@ function Help({ label, icon, children }: { label: string; icon: ReactNode; child
       >
         {icon}
       </TooltipTrigger>
-      <TooltipContent id={id} role="tooltip" side="bottom" className="block max-w-[280px] leading-normal">
+      <TooltipContent id={id} role="tooltip" side="bottom" className="flex max-w-[280px] flex-col items-start gap-2 leading-normal">
         {children}
       </TooltipContent>
     </Tooltip>
@@ -53,7 +53,13 @@ export function App() {
       </header>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="provider" className={fieldLabel}>Servidor de imagens</Label>
+        <div className="flex items-center gap-1">
+          <Label htmlFor="provider" className={fieldLabel}>Servidor de imagens</Label>
+          <Help label="Sobre o modo automático" icon={<Info />}>
+            <p>No modo automático: catbox → pomf → uguu → litterbox → tmpfiles.</p>
+            <p>Se o catbox estiver pausado, cai para o próximo.</p>
+          </Help>
+        </div>
         <Select
           items={PROVIDERS}
           value={settings.provider}
@@ -68,9 +74,6 @@ export function App() {
             ))}
           </SelectContent>
         </Select>
-        <p className={hint}>
-          No modo automático: catbox → pomf → uguu → litterbox → tmpfiles. Se o catbox estiver pausado, cai para o próximo.
-        </p>
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -94,7 +97,8 @@ export function App() {
         <div className="flex items-center gap-1">
           <Label htmlFor="imgurClientId" className={fieldLabel}>Imgur Client-ID (opcional)</Label>
           <Help label="Sobre o Imgur Client-ID" icon={<Info />}>
-            O Imgur <b>fechou novos registros de aplicativo</b> — a página de registro redireciona para a home e não há previsão de reabertura. Este campo serve apenas para quem já possui um Client-ID antigo (nesse caso, o Imgur entra primeiro no modo automático e é permanente).
+            <p>O Imgur <b>fechou novos registros de aplicativo</b> — a página de registro redireciona para a home e não há previsão de reabertura.</p>
+            <p>Este campo serve apenas para quem já possui um Client-ID antigo (nesse caso, o Imgur entra primeiro no modo automático e é permanente).</p>
           </Help>
         </div>
         <Input
@@ -117,7 +121,9 @@ export function App() {
             Não reaproveitar uploads de outros provedores
           </Label>
           <Help label="Sobre o reaproveitamento de uploads" icon={<CircleHelp />}>
-            Quando você cola uma imagem que já enviou antes, o PastePic reaproveita o link anterior em vez de subir de novo, mesmo que ela esteja em outro provedor. Links de hosts temporários só são reaproveitados enquanto não expiram. Marque esta opção para reaproveitar só links do provedor escolhido acima (no modo automático, de qualquer provedor da lista); se não houver, a imagem é enviada de novo.
+            <p>Quando você cola uma imagem que já enviou antes, o PastePic reaproveita o link anterior em vez de subir de novo, mesmo que ela esteja em outro provedor.</p>
+            <p>Links de hosts temporários só são reaproveitados enquanto não expiram.</p>
+            <p>Marque esta opção para reaproveitar só links do provedor escolhido acima (no modo automático, de qualquer provedor da lista); se não houver, a imagem é enviada de novo.</p>
           </Help>
         </div>
       </div>

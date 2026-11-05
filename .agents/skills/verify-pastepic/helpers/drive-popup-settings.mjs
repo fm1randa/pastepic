@@ -34,6 +34,7 @@ async function openPopup(browser, stored) {
     html: page.getByRole('radio', { name: /^HTML/ }),
     markdown: page.getByRole('radio', { name: /^Markdown/ }),
     imgurId: page.getByRole('textbox', { name: 'Imgur Client-ID (opcional)' }),
+    providerHelp: page.getByRole('button', { name: 'Sobre o modo automático' }),
     imgurHelp: page.getByRole('button', { name: 'Sobre o Imgur Client-ID' }),
     reuse: page.getByRole('checkbox', { name: 'Não reaproveitar uploads de outros provedores' }),
     reuseHelp: page.getByRole('button', { name: 'Sobre o reaproveitamento de uploads' }),
@@ -45,6 +46,7 @@ async function openPopup(browser, stored) {
 
 const IMGUR_HELP = 'fechou novos registros';
 const REUSE_HELP = 'reaproveita o link anterior';
+const PROVIDER_HELP = 'catbox → pomf → uguu → litterbox → tmpfiles';
 const tooltipShown = (page, text) => page.getByRole('tooltip').filter({ hasText: text }).isVisible();
 
 const settled = (page) => page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
@@ -70,8 +72,13 @@ try {
     JSON.stringify(defaults));
 
   check('help-hidden-at-start',
-    !(await tooltipShown(page, IMGUR_HELP)) && !(await tooltipShown(page, REUSE_HELP)),
+    !(await tooltipShown(page, IMGUR_HELP)) && !(await tooltipShown(page, REUSE_HELP)) && !(await tooltipShown(page, PROVIDER_HELP)),
     'no help tooltip before interaction');
+  await ui.providerHelp.hover();
+  await page.getByRole('tooltip').filter({ hasText: PROVIDER_HELP }).waitFor({ timeout: 3000 }).catch(() => {});
+  check('provider-help-on-hover', await tooltipShown(page, PROVIDER_HELP), 'hovering the info button shows the automatic chain');
+  await page.mouse.move(0, 600);
+  await page.getByRole('tooltip').waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
   await ui.imgurHelp.hover();
   await page.getByRole('tooltip').filter({ hasText: IMGUR_HELP }).waitFor({ timeout: 3000 }).catch(() => {});
   check('imgur-help-on-hover', await tooltipShown(page, IMGUR_HELP), 'hovering the info button shows the Imgur help');
@@ -107,7 +114,7 @@ try {
     .then(() => true, () => false);
   await settled(page);
   await page.screenshot({ path: path.join(OUT, 'screenshot-dark.png'), fullPage: true });
-  for (const [help, text, name] of [[ui.reuseHelp, REUSE_HELP, 'tooltip-reuse'], [ui.imgurHelp, IMGUR_HELP, 'tooltip-imgur']]) {
+  for (const [help, text, name] of [[ui.reuseHelp, REUSE_HELP, 'tooltip-reuse'], [ui.imgurHelp, IMGUR_HELP, 'tooltip-imgur'], [ui.providerHelp, PROVIDER_HELP, 'tooltip-provider']]) {
     await help.hover();
     await page.getByRole('tooltip').filter({ hasText: text }).waitFor({ timeout: 3000 });
     await settled(page);
