@@ -1,4 +1,7 @@
+<!-- translated from README.md @ 837256c (base: 837256c; readme-blob: 46c0bcbba5538eb590641ef0e1142412da7bb3f1); when README.md changes, sync this file and update the SHA and readme-blob (git hash-object README.md) -->
 [English](README.md) · **Português (Brasil)**
+
+> A [README.md](README.md) em inglês é a versão de referência; esta tradução pode ficar atrás dela.
 
 # PastePic
 
