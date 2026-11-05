@@ -1,67 +1,67 @@
-**Português (Brasil)** · [English](README.en.md)
+**English** · [Português (Brasil)](README.pt-BR.md)
 
 # PastePic
 
-Extensão para Chrome (Manifest V3) que cola imagens do clipboard direto no editor de texto:
+Chrome extension (Manifest V3) that pastes clipboard images straight into a text editor:
 
-1. Copie uma imagem (print, `Cmd+Shift+Ctrl+4`, botão direito → Copiar imagem, etc.).
-2. Clique no editor e pressione **Cmd+V** (macOS) ou **Ctrl+V**.
-3. A extensão faz upload da imagem para um host gratuito **sem precisar de conta** e insere automaticamente a tag `<img src="...">` (ou Markdown) onde estava o cursor.
+1. Copy an image (screenshot, `Cmd+Shift+Ctrl+4`, right click → Copy image, etc.).
+2. Click the editor and press **Cmd+V** (macOS) or **Ctrl+V**.
+3. The extension uploads the image to a free host **with no account required** and inserts `<img src="...">` (or Markdown) where the cursor was.
 
-Paste de texto continua funcionando normalmente — a extensão só age quando o clipboard contém imagem.
+Text pastes keep working normally — the extension only acts when the clipboard holds an image.
 
-Hoje vem habilitada para **TabNews** e **curso.dev**, onde foi testada de ponta a ponta. A lógica é genérica (qualquer `textarea`, `input` ou `contenteditable`; e editores ByteMD/CodeMirror 5 via ponte), então outros sites podem ser adicionados em `manifest.json` — veja "Adicionar outros sites".
+Today it ships enabled for **TabNews** and **curso.dev**, where it was tested end to end. The logic is generic (any `textarea`, `input` or `contenteditable`; plus ByteMD/CodeMirror 5 editors through the bridge), so more sites can be added in `manifest.json` — see "Adding other sites".
 
-## Compatibilidade com o editor (ByteMD/CodeMirror)
+## Editor compatibility (ByteMD/CodeMirror)
 
-O campo de comentário do TabNews e do curso.dev não é um `<textarea>` comum: é o editor ByteMD (CodeMirror 5 por baixo). Content scripts do Chrome rodam num mundo isolado e **não enxergam** a propriedade `elemento.CodeMirror` que a página criou — por isso existe `page-bridge.js`, declarado com `"world": "MAIN"`, que roda como script da página e executa a API nativa do editor (`replaceRange`/`markText`). O `content.js` conversa com ele por eventos DOM com payload JSON. Em campos de texto comuns, a inserção é via `value` + eventos `input`/`change` (compatível com React); em CodeMirror 6/`contenteditable`, usa `execCommand('insertText')` como melhor esforço.
+The comment box on TabNews and curso.dev is not a plain `<textarea>`: it is the ByteMD editor (CodeMirror 5 underneath). Chrome content scripts run in an isolated world and **cannot see** the `element.CodeMirror` property the page set — that is why `page-bridge.js` exists, declared with `"world": "MAIN"`, running as a page script and calling the editor's native API (`replaceRange`/`markText`). `content.js` talks to it through DOM events carrying JSON payloads. In plain text fields the insertion goes through `value` plus `input`/`change` events (React-compatible); in CodeMirror 6/`contenteditable` it uses `execCommand('insertText')` as a best effort.
 
-## Como funciona
+## How it works
 
-- `content.js` escuta o evento `paste` no documento. Achou imagem? Cancela o paste, mostra `⏳ Enviando imagem...` no lugar do cursor e envia os bytes ao `background.js`.
-- `page-bridge.js` (mundo da página) executa a troca do placeholder pela tag na instância real do CodeMirror 5.
-- `background.js` (service worker) faz o upload. O upload roda na extensão (não na página) porque hosts como o catbox.moe não liberam CORS para sites — com `host_permissions` a extensão pode chamar a API direto.
-- Ordem no modo **automático**: `catbox.moe` → `pomf.lain.la` → `uguu.se` → `litterbox` (72h) → `tmpfiles.org`. Se um estiver fora do ar (o catbox e o 0x0.st estavam pausados em nov/2026), tenta o próximo.
-- Opcional: se você possui um **Client-ID antigo do Imgur**, configure-o no popup para uploads permanentes via Imgur. Atenção: o Imgur **fechou novos registros de aplicativo** (a página `api.imgur.com/oauth2/addclient` redireciona para a home, sem previsão de reabertura), então não é mais possível criar um Client-ID novo.
-- Formato de inserção configurável no popup: HTML `<img src="...">` (padrão) ou Markdown `![](...)`.
+- `content.js` listens for the `paste` event on the document. Image found? It cancels the paste, shows `⏳ Enviando imagem...` at the cursor and sends the bytes to `background.js`.
+- `page-bridge.js` (page world) swaps the placeholder for the tag on the real CodeMirror 5 instance.
+- `background.js` (service worker) does the upload. The upload runs in the extension (not the page) because hosts such as catbox.moe send no CORS headers for sites — under `host_permissions` the extension can call the API directly.
+- Order in **automatic** mode: `catbox.moe` → `pomf.lain.la` → `uguu.se` → `litterbox` (72h) → `tmpfiles.org`. If one is down (catbox and 0x0.st were paused in Nov 2026), it tries the next.
+- Optional: if you own an **old Imgur Client-ID**, set it in the popup for permanent Imgur uploads. Note: Imgur **closed new application registrations** (the `api.imgur.com/oauth2/addclient` page redirects home, with no reopening in sight), so a new Client-ID can no longer be created.
+- Insertion format configurable in the popup: HTML `<img src="...">` (default) or Markdown `![](...)`.
 
-## Instalação (modo desenvolvedor)
+## Installation (developer mode)
 
-1. Baixe/descompacte esta pasta (ou o `pastepic.zip`).
-2. Abra `chrome://extensions`.
-3. Ative **Modo do desenvolvedor** (canto superior direito).
-4. Clique em **Carregar sem compactação** e selecione a pasta `pastepic`.
-5. Abra um conteúdo do TabNews ou uma aula do curso.dev (logado), clique no campo de comentário e cole a imagem com Cmd/Ctrl+V.
+1. Download/unzip this folder (or `pastepic.zip`).
+2. Open `chrome://extensions`.
+3. Turn on **Developer mode** (top right).
+4. Click **Load unpacked** and select the `pastepic` folder.
+5. Open a TabNews post or a curso.dev lesson (logged in), click the comment box and paste the image with Cmd/Ctrl+V.
 
-Para atualizar após editar os arquivos: clique no ícone ⟳ (recarregar) do cartão da extensão em `chrome://extensions`.
+To update after editing files: click the ⟳ (reload) icon on the extension card in `chrome://extensions`.
 
-## Adicionar outros sites
+## Adding other sites
 
-A extensão já é genérica; o que limita são os domínios listados em `manifest.json`, nas duas entradas de `content_scripts` (a do `page-bridge.js` e a do `content.js`). Para habilitar um site novo:
+The extension is already generic; what limits it is the list of domains in `manifest.json`, in both `content_scripts` entries (the `page-bridge.js` one and the `content.js` one). To enable a new site:
 
-1. Acrescente o padrão de URL nas **duas** listas `matches` (ex.: `"https://exemplo.com/*"`).
-2. Recarregue a extensão em `chrome://extensions` e recarregue a página (o content script já injetado não é atualizado).
-3. Cole uma imagem e observe o console: `[PastePic] swap {...}` diz qual `kind` de editor foi usado (`cm5`, `plain`, `contenteditable`) e o código do resultado.
+1. Add the URL pattern to **both** `matches` lists (e.g. `"https://example.com/*"`).
+2. Reload the extension in `chrome://extensions` and reload the page (an already-injected content script is not updated).
+3. Paste an image and watch the console: `[PastePic] swap {...}` tells which editor `kind` was used (`cm5`, `plain`, `contenteditable`) and the result code.
 
-Se a inserção falhar, o toast mostra a URL para colar manualmente. Editores suportados hoje: ByteMD/CodeMirror 5 (via ponte), `<textarea>`/`<input>` e `contenteditable`. CodeMirror 6, ProseMirror/TipTap e Monaco são reconhecidos mas respondem `unsupported` — o toast avisa e nada é escrito no lugar errado.
+If insertion fails, the toast shows the URL so you can paste it manually. Editors supported today: ByteMD/CodeMirror 5 (through the bridge), `<textarea>`/`<input>` and `contenteditable`. CodeMirror 6, ProseMirror/TipTap and Monaco are recognized but answer `unsupported` — the toast says so and nothing is written in the wrong place.
 
-Evite habilitar em sites que já tratam paste de imagem nativamente (GitHub, GitLab, Discourse, Notion): a extensão interceptaria o paste e mandaria para os hosts dela em vez do upload nativo do site.
+Avoid enabling it on sites that already handle image pastes natively (GitHub, GitLab, Discourse, Notion): the extension would intercept the paste and send it to its own hosts instead of the site's native upload.
 
-## Arquivos
+## Files
 
-| Arquivo          | Papel                                                          |
-| ---------------- | -------------------------------------------------------------- |
-| `manifest.json`  | Manifesto MV3: permissões, content scripts, popup               |
-| `content.js`     | Intercepta o paste, abre a sessão, faz upload, avisa (toast)     |
-| `editor-session.js` | Sessão de edição: âncora, retry da troca, `release` verificado |
-| `page-bridge.js` | Mundo da página: detecção de editor, adapters, único escritor   |
-| `limits.js`      | Cadeia de provedores e timeouts (a trava de resposta é derivada) |
-| `background.js`  | Upload para os hosts gratuitos + fallback                       |
-| `popup.html/js`  | Escolha de provedor, formato e Client-ID do Imgur               |
+| File             | Role                                                            |
+| ---------------- | --------------------------------------------------------------- |
+| `manifest.json`  | MV3 manifest: permissions, content scripts, popup                |
+| `content.js`     | Intercepts the paste, opens the session, uploads, shows toasts   |
+| `editor-session.js` | Editing session: anchor, swap retry, verified `release`       |
+| `page-bridge.js` | Page world: editor detection, adapters, single writer            |
+| `limits.js`      | Provider chain and timeouts (the response guard is derived)      |
+| `background.js`  | Upload to the free hosts + fallback                              |
+| `popup.html/js`  | Provider, format and Imgur Client-ID settings                    |
 
-## Limites e solução de problemas
+## Limits and troubleshooting
 
-- Imagens de até 20 MB (limite da extensão; cada host tem o seu).
-- Hosts temporários (uguu, litterbox, tmpfiles) apagam o arquivo depois de horas — para comentários permanentes, prefira catbox/pomf/Imgur.
-- Cada tentativa de upload tem timeout de 60s: se um servidor travar, o modo automático passa para o próximo em vez de deixar o `⏳ Enviando imagem...` preso. A trava total de resposta é derivada da cadeia (`60s × (provedores + 1) + 15s`), hoje 375s.
-- Se o placeholder ficar preso ou der erro: abra `chrome://extensions`, clique em **recarregar (⟳)** no cartão da extensão e tente de novo. Para ver o erro exato, em `chrome://extensions` ative o modo desenvolvedor e clique em **service worker** no cartão da extensão para abrir o console (os erros saem com o prefixo `[PastePic]`).
+- Images up to 20 MB (extension limit; each host has its own).
+- Temporary hosts (uguu, litterbox, tmpfiles) delete the file after hours — for permanent comments prefer catbox/pomf/Imgur.
+- Every upload attempt has a 60s timeout: if a server hangs, automatic mode moves on instead of leaving `⏳ Enviando imagem...` stuck. The overall response guard is derived from the chain (`60s × (providers + 1) + 15s`), 375s today.
+- If the placeholder gets stuck or an error appears: open `chrome://extensions`, click **reload (⟳)** on the extension card and try again. To see the exact error, enable developer mode in `chrome://extensions` and click **service worker** on the extension card to open its console (errors are prefixed with `[PastePic]`).
