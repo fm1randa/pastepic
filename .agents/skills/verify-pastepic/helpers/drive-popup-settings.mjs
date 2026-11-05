@@ -43,10 +43,9 @@ async function openPopup(browser, stored) {
   return { page, ui, errors };
 }
 
-async function disclosure(page, button) {
-  const panel = page.locator(`#${await button.getAttribute('aria-controls')}`);
-  return { expanded: await button.getAttribute('aria-expanded'), visible: await panel.isVisible(), text: await panel.textContent() };
-}
+const IMGUR_HELP = 'fechou novos registros';
+const REUSE_HELP = 'reaproveita o link anterior';
+const tooltipShown = (page, text) => page.getByRole('tooltip').filter({ hasText: text }).isVisible();
 
 const settled = (page) => page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
 
@@ -70,26 +69,24 @@ try {
     defaults.provider === 'Automático (tenta vários)' && defaults.html && !defaults.markdown && defaults.imgurClientId === '',
     JSON.stringify(defaults));
 
-  const imgurStart = await disclosure(page, ui.imgurHelp);
-  check('imgur-help-hidden', !imgurStart.visible && imgurStart.expanded === 'false', JSON.stringify({ ...imgurStart, text: undefined }));
-  await ui.imgurHelp.click();
-  const imgurOpen = await disclosure(page, ui.imgurHelp);
-  check('imgur-help-opens',
-    imgurOpen.visible && imgurOpen.expanded === 'true' && imgurOpen.text.includes('fechou novos registros'),
-    JSON.stringify({ ...imgurOpen, text: undefined }));
-  await ui.imgurHelp.click();
-  const imgurClosed = await disclosure(page, ui.imgurHelp);
-  check('imgur-help-closes', !imgurClosed.visible && imgurClosed.expanded === 'false', JSON.stringify({ ...imgurClosed, text: undefined }));
+  check('help-hidden-at-start',
+    !(await tooltipShown(page, IMGUR_HELP)) && !(await tooltipShown(page, REUSE_HELP)),
+    'no help tooltip before interaction');
+  await ui.imgurHelp.hover();
+  await page.getByRole('tooltip').filter({ hasText: IMGUR_HELP }).waitFor({ timeout: 3000 }).catch(() => {});
+  check('imgur-help-on-hover', await tooltipShown(page, IMGUR_HELP), 'hovering the info button shows the Imgur help');
+  await page.mouse.move(0, 600);
+  await page.getByRole('tooltip').waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+  check('imgur-help-closes', !(await tooltipShown(page, IMGUR_HELP)), 'moving away hides it');
 
-  const reuseStart = await disclosure(page, ui.reuseHelp);
-  check('reuse-option-off-by-default', !defaults.sameProviderOnly && !reuseStart.visible && reuseStart.expanded === 'false',
-    JSON.stringify({ checked: defaults.sameProviderOnly, visible: reuseStart.visible }));
-  await ui.reuseHelp.click();
-  const reuseOpen = await disclosure(page, ui.reuseHelp);
-  const imgurAfter = await disclosure(page, ui.imgurHelp);
-  check('reuse-help-opens',
-    reuseOpen.visible && reuseOpen.expanded === 'true' && reuseOpen.text.includes('reaproveita o link anterior') && !imgurAfter.visible,
-    JSON.stringify({ visible: reuseOpen.visible, expanded: reuseOpen.expanded, imgurVisible: imgurAfter.visible }));
+  check('reuse-option-off-by-default', !defaults.sameProviderOnly, JSON.stringify({ checked: defaults.sameProviderOnly }));
+  await ui.reuseHelp.focus();
+  await page.getByRole('tooltip').filter({ hasText: REUSE_HELP }).waitFor({ timeout: 3000 }).catch(() => {});
+  check('reuse-help-on-focus',
+    (await tooltipShown(page, REUSE_HELP)) && !(await tooltipShown(page, IMGUR_HELP)),
+    'keyboard focus shows only the reuse help');
+  await page.keyboard.press('Escape');
+  await page.getByRole('tooltip').waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
 
   await ui.provider.click();
   await page.getByRole('option', { name: 'pomf.lain.la (permanente)' }).click();
@@ -110,6 +107,14 @@ try {
     .then(() => true, () => false);
   await settled(page);
   await page.screenshot({ path: path.join(OUT, 'screenshot-dark.png'), fullPage: true });
+  for (const [help, text, name] of [[ui.reuseHelp, REUSE_HELP, 'tooltip-reuse'], [ui.imgurHelp, IMGUR_HELP, 'tooltip-imgur']]) {
+    await help.hover();
+    await page.getByRole('tooltip').filter({ hasText: text }).waitFor({ timeout: 3000 });
+    await settled(page);
+    await page.screenshot({ path: path.join(OUT, `screenshot-${name}.png`) });
+    await page.mouse.move(0, 600);
+    await page.getByRole('tooltip').waitFor({ state: 'hidden', timeout: 3000 });
+  }
   check('color-scheme-follows-system', light === false && dark === true, JSON.stringify({ light, dark }));
 
   await ui.save.click();

@@ -1,43 +1,35 @@
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useId, useState, type ReactNode } from "react"
 import { CircleHelp, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PROVIDERS, loadSettings, saveSettings, type Format, type Settings } from "@/settings"
 
 const fieldLabel = "font-heading text-xs font-normal tracking-wider"
 const hint = "text-xs leading-normal text-muted-foreground"
 
-function HelpButton({ controls, label, open, onToggle, children }: {
-  controls: string
-  label: string
-  open: boolean
-  onToggle: () => void
-  children: ReactNode
-}) {
+function Help({ label, icon, children }: { label: string; icon: ReactNode; children: ReactNode }) {
+  const id = useId()
   return (
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      className="size-6"
-      aria-label={label}
-      title={label}
-      aria-expanded={open}
-      aria-controls={controls}
-      onClick={onToggle}
-    >
-      {children}
-    </Button>
+    <Tooltip>
+      <TooltipTrigger
+        render={<Button variant="ghost" size="icon-sm" className="size-6" aria-label={label} aria-describedby={id} />}
+      >
+        {icon}
+      </TooltipTrigger>
+      <TooltipContent id={id} role="tooltip" side="bottom" className="block max-w-[280px] leading-normal">
+        {children}
+      </TooltipContent>
+    </Tooltip>
   )
 }
 
 export function App() {
   const [settings, setSettings] = useState<Settings | null>(null)
-  const [imgurHelpOpen, setImgurHelpOpen] = useState(false)
-  const [reuseHelpOpen, setReuseHelpOpen] = useState(false)
   const [status, setStatus] = useState("")
 
   useEffect(() => {
@@ -101,14 +93,9 @@ export function App() {
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center gap-1">
           <Label htmlFor="imgurClientId" className={fieldLabel}>Imgur Client-ID (opcional)</Label>
-          <HelpButton
-            controls="imgurHelpText"
-            label="Sobre o Imgur Client-ID"
-            open={imgurHelpOpen}
-            onToggle={() => setImgurHelpOpen(!imgurHelpOpen)}
-          >
-            <Info />
-          </HelpButton>
+          <Help label="Sobre o Imgur Client-ID" icon={<Info />}>
+            O Imgur <b>fechou novos registros de aplicativo</b> — a página de registro redireciona para a home e não há previsão de reabertura. Este campo serve apenas para quem já possui um Client-ID antigo (nesse caso, o Imgur entra primeiro no modo automático e é permanente).
+          </Help>
         </div>
         <Input
           id="imgurClientId"
@@ -118,9 +105,6 @@ export function App() {
           value={settings.imgurClientId}
           onChange={(e) => update({ imgurClientId: e.target.value })}
         />
-        <p id="imgurHelpText" className={hint} hidden={!imgurHelpOpen}>
-          O Imgur <b>fechou novos registros de aplicativo</b> — a página de registro redireciona para a home e não há previsão de reabertura. Este campo serve apenas para quem já possui um Client-ID antigo (nesse caso, o Imgur entra primeiro no modo automático e é permanente).
-        </p>
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -132,18 +116,10 @@ export function App() {
             />
             Não reaproveitar uploads de outros provedores
           </Label>
-          <HelpButton
-            controls="reuseHelpText"
-            label="Sobre o reaproveitamento de uploads"
-            open={reuseHelpOpen}
-            onToggle={() => setReuseHelpOpen(!reuseHelpOpen)}
-          >
-            <CircleHelp />
-          </HelpButton>
+          <Help label="Sobre o reaproveitamento de uploads" icon={<CircleHelp />}>
+            Quando você cola uma imagem que já enviou antes, o PastePic reaproveita o link anterior em vez de subir de novo, mesmo que ela esteja em outro provedor. Links de hosts temporários só são reaproveitados enquanto não expiram. Marque esta opção para reaproveitar só links do provedor escolhido acima (no modo automático, de qualquer provedor da lista); se não houver, a imagem é enviada de novo.
+          </Help>
         </div>
-        <p id="reuseHelpText" className={hint} hidden={!reuseHelpOpen}>
-          Quando você cola uma imagem que já enviou antes, o PastePic reaproveita o link anterior em vez de subir de novo, mesmo que ela esteja em outro provedor. Links de hosts temporários só são reaproveitados enquanto não expiram. Marque esta opção para reaproveitar só links do provedor escolhido acima (no modo automático, de qualquer provedor da lista); se não houver, a imagem é enviada de novo.
-        </p>
       </div>
 
       <Button className="w-full" onClick={save}>Salvar</Button>
