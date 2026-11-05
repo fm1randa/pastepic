@@ -40,7 +40,7 @@
     }
   ],
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "dist/popup/index.html",
     "default_title": "PastePic",
     "default_icon": {
       "16": "icons/icon16.png",
