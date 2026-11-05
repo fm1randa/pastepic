@@ -31,13 +31,20 @@ O campo de comentário do TabNews e do curso.dev não é um `<textarea>` comum: 
 
 ## Instalação (modo desenvolvedor)
 
-1. Baixe/descompacte esta pasta (ou o `pastepic.zip`).
+1. Descompacte o `store/pastepic-2.2.0.zip` numa pasta só para ele.
 2. Abra `chrome://extensions`.
 3. Ative **Modo do desenvolvedor** (canto superior direito).
-4. Clique em **Carregar sem compactação** e selecione a pasta `pastepic`.
+4. Clique em **Carregar sem compactação** e selecione a pasta onde descompactou (a que tem o `manifest.json`).
 5. Abra um conteúdo do TabNews ou uma aula do curso.dev (logado), clique no campo de comentário e cole a imagem com Cmd/Ctrl+V.
 
-Para atualizar após editar os arquivos: clique no ícone ⟳ (recarregar) do cartão da extensão em `chrome://extensions`.
+### A partir do código-fonte
+
+O popup é um app React compilado com Vite; os content scripts e o service worker não precisam de build. Num clone:
+
+1. Rode `npm install && npm run build` na raiz do repositório. O popup vai para `dist/popup/`.
+2. Em `chrome://extensions`, clique em **Carregar sem compactação** e selecione a raiz do repositório.
+
+Para atualizar após editar os arquivos: rode `npm run build` de novo se mudou algo em `popup/` e clique no ícone ⟳ (recarregar) do cartão da extensão em `chrome://extensions`. O `npm run package` compila e gera o `store/pastepic-<versão>.zip` para a Chrome Web Store.
 
 ## Adicionar outros sites
 
@@ -61,7 +68,7 @@ Evite habilitar em sites que já tratam paste de imagem nativamente (GitHub, Git
 | `page-bridge.js` | Mundo da página: detecção de editor, adapters, único escritor   |
 | `limits.js`      | Cadeia de provedores e timeouts (a trava de resposta é derivada) |
 | `background.js`  | Upload para os hosts gratuitos + fallback                       |
-| `popup.html/js`  | Escolha de provedor, formato e Client-ID do Imgur               |
+| `popup/`         | Código do popup (React + FLPM UI): provedor, formato, Client-ID do Imgur e reaproveitamento; compila para `dist/popup/` |
 
 ## Limites e solução de problemas
 

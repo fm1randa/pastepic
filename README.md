@@ -28,13 +28,20 @@ The comment box on TabNews and curso.dev is not a plain `<textarea>`: it is the 
 
 ## Installation (developer mode)
 
-1. Download/unzip this folder (or `pastepic.zip`).
+1. Unzip `store/pastepic-2.2.0.zip` into a folder of its own.
 2. Open `chrome://extensions`.
 3. Turn on **Developer mode** (top right).
-4. Click **Load unpacked** and select the `pastepic` folder.
+4. Click **Load unpacked** and select the folder you unzipped into (the one with `manifest.json`).
 5. Open a TabNews post or a curso.dev lesson (logged in), click the comment box and paste the image with Cmd/Ctrl+V.
 
-To update after editing files: click the ⟳ (reload) icon on the extension card in `chrome://extensions`.
+### From the source
+
+The popup is a React app built with Vite; the content scripts and the service worker need no build. From a clone:
+
+1. Run `npm install && npm run build` at the repo root. The popup lands in `dist/popup/`.
+2. In `chrome://extensions`, click **Load unpacked** and select the repo root.
+
+To update after editing files: run `npm run build` again if you changed `popup/`, then click the ⟳ (reload) icon on the extension card in `chrome://extensions`. `npm run package` builds and writes `store/pastepic-<version>.zip` for the Chrome Web Store.
 
 ## Adding other sites
 
@@ -58,7 +65,7 @@ Avoid enabling it on sites that already handle image pastes natively (GitHub, Gi
 | `page-bridge.js` | Page world: editor detection, adapters, single writer            |
 | `limits.js`      | Provider chain and timeouts (the response guard is derived)      |
 | `background.js`  | Upload to the free hosts + fallback                              |
-| `popup.html/js`  | Provider, format and Imgur Client-ID settings                    |
+| `popup/`         | Popup source (React + FLPM UI): provider, format, Imgur Client-ID and reuse settings; builds into `dist/popup/` |
 
 ## Limits and troubleshooting
 
