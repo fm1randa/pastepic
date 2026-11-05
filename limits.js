@@ -10,6 +10,19 @@ globalThis.PastePicLimits = {
   uploadTimeoutMs: 25000,
   // Extra room for the Imgur hop in front of the chain and for slow bodies.
   guardSlackMs: 15000,
+  // How long each host keeps an upload, so a remembered link is reused only
+  // while it still resolves. null means no known expiry. litterbox follows the
+  // time=72h we request; uguu and tmpfiles publish 3h and 60min.
+  retentionMs: {
+    catbox: null,
+    pomf: null,
+    imgur: null,
+    litterbox: 72 * 60 * 60 * 1000,
+    uguu: 3 * 60 * 60 * 1000,
+    tmpfiles: 60 * 60 * 1000,
+  },
+  // A link this close to expiring is not reused: the reader would open a dead image.
+  reuseMarginMs: 5 * 60 * 1000,
   // Shells whose paste target may not itself be the editable element (ByteMD
   // renders a span inside the editor). Shared so the isolated world can claim
   // the paste without naming any editor API.

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PastePic",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "homepage_url": "https://github.com/fm1randa/pastepic",
   "description": "Cole imagens do clipboard (Cmd+V / Ctrl+V) em editores web: faz upload automático para um host gratuito e insere a tag <img> ou Markdown no cursor.",
   "permissions": ["storage"],

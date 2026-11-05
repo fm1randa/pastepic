@@ -22,6 +22,7 @@ The comment box on TabNews and curso.dev is not a plain `<textarea>`: it is the 
 - `page-bridge.js` (page world) swaps the placeholder for the tag on the real CodeMirror 5 instance.
 - `background.js` (service worker) does the upload. The upload runs in the extension (not the page) because hosts such as catbox.moe send no CORS headers for sites — under `host_permissions` the extension can call the API directly.
 - Order in **automatic** mode: `catbox.moe` → `pomf.lain.la` → `uguu.se` → `litterbox` (72h) → `tmpfiles.org`. If one is down (catbox and 0x0.st were paused in Nov 2026), it tries the next.
+- Pasting the same image again reuses its link instead of uploading it again. `background.js` keeps a SHA-256 of each uploaded image with its URL in `chrome.storage.local`, on this device only, and reuses the link while the host still keeps the file (expiry per host in `limits.js`). The image itself is not stored.
 - Optional: if you own an **old Imgur Client-ID**, set it in the popup for permanent Imgur uploads. Note: Imgur **closed new application registrations** (the `api.imgur.com/oauth2/addclient` page redirects home, with no reopening in sight), so a new Client-ID can no longer be created.
 - Insertion format configurable in the popup: HTML `<img src="...">` (default) or Markdown `![](...)`.
 

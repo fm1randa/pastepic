@@ -181,7 +181,12 @@
     const swapped = await session.swap(placeholder, tag);
     dbg('swap', { kind: session.kind, code: swapped.code, provider: resp.provider });
     if (swapped.ok) {
-      toast(`Imagem inserida via ${resp.provider}.`, false);
+      toast(
+        resp.reused
+          ? `Imagem inserida (link reaproveitado de ${resp.provider}).`
+          : `Imagem inserida via ${resp.provider}.`,
+        false
+      );
     } else {
       // The upload succeeded even when the insertion did not: never report
       // success, hand the URL over instead.

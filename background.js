@@ -8,6 +8,15 @@ if (typeof importScripts === 'function') importScripts('limits.js');
 const LIMITS = globalThis.PastePicLimits || {
   autoOrder: ['catbox', 'pomf', 'uguu', 'litterbox', 'tmpfiles'],
   uploadTimeoutMs: 60000,
+  retentionMs: {
+    catbox: null,
+    pomf: null,
+    imgur: null,
+    litterbox: 72 * 60 * 60 * 1000,
+    uguu: 3 * 60 * 60 * 1000,
+    tmpfiles: 60 * 60 * 1000,
+  },
+  reuseMarginMs: 5 * 60 * 1000,
 };
 const AUTO_ORDER = LIMITS.autoOrder;
 
@@ -182,10 +191,50 @@ function bytesFromMessage(msg) {
   throw new Error('payload sem bytes');
 }
 
+// One storage key per image, so concurrent uploads of different images never
+// read-modify-write a shared object. The cache is a convenience: any storage or
+// hashing failure reads as a miss and the upload proceeds.
+async function uploadCacheKey(bytes) {
+  try {
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+    return `upload:${Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('')}`;
+  } catch {
+    return null;
+  }
+}
+
+async function readCachedUpload(key) {
+  try {
+    const entry = (await chrome.storage.local.get(key))[key];
+    if (!entry) return null;
+    if (entry.expiresAt === null || entry.expiresAt - Date.now() > LIMITS.reuseMarginMs) return entry;
+    await chrome.storage.local.remove(key);
+  } catch {
+    /* miss */
+  }
+  return null;
+}
+
+async function writeCachedUpload(key, provider, url) {
+  try {
+    const ms = LIMITS.retentionMs[provider];
+    const expiresAt = ms == null ? null : Date.now() + ms;
+    await chrome.storage.local.set({ [key]: { url, provider, expiresAt } });
+  } catch {
+    /* the upload already succeeded */
+  }
+}
+
 async function handleUpload(msg) {
   const settings = await getSettings();
   const wanted = msg.provider || settings.provider || 'auto';
+  const format = settings.format || 'html';
   const bytes = bytesFromMessage(msg);
+
+  const key = await uploadCacheKey(bytes);
+  const cached = key && (await readCachedUpload(key));
+  if (cached) return { ok: true, url: cached.url, provider: cached.provider, format, reused: true };
+
   const file = makeFile(bytes, msg.mime, msg.name);
 
   let order;
@@ -200,7 +249,8 @@ async function handleUpload(msg) {
   for (const name of order) {
     try {
       const url = await UPLOADERS[name](file, bytes, msg.mime, settings.imgurClientId);
-      return { ok: true, url, provider: name, format: settings.format || 'html' };
+      if (key) await writeCachedUpload(key, name, url);
+      return { ok: true, url, provider: name, format };
     } catch (err) {
       errors.push(`${name}: ${err?.message || err}`);
     }

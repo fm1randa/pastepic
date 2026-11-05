@@ -22,6 +22,12 @@ insere o link resultante no editor, no ponto do cursor.
   Markdown e, se você preencher, o Client-ID do Imgur) são gravadas no
   `chrome.storage.sync` do seu navegador. Elas ficam na sua conta do Chrome e
   não são enviadas ao desenvolvedor.
+- **Histórico de envios.** Para não enviar a mesma imagem duas vezes, a
+  extensão guarda no `chrome.storage.local`, apenas neste dispositivo, um hash
+  (SHA-256) de cada imagem enviada junto com o link gerado, o serviço usado e a
+  validade conhecida do link. A imagem em si não é guardada, e esses dados não
+  são enviados ao desenvolvedor. Ao colar de novo a mesma imagem, o link
+  guardado é reaproveitado enquanto o serviço ainda o mantém no ar.
 
 ## O que a extensão não faz
 
@@ -32,7 +38,7 @@ insere o link resultante no editor, no ponto do cursor.
 
 ## Permissões e por quê
 
-- `storage`: guardar as preferências do popup.
+- `storage`: guardar as preferências do popup e o histórico de envios.
 - Acesso aos domínios dos serviços de hospedagem: necessário para enviar a
   imagem diretamente do navegador, já que esses serviços não liberam CORS para
   páginas comuns.
