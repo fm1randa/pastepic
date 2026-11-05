@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<!-- T2a fixture: the HOST side only. Loads page-bridge.js and nothing else, so
+     there is no isolated world to fuse with. Every editor kind has a target. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PastePic contract fixture (host)</title>
+<link rel="stylesheet" href="/codemirror/lib/codemirror.css">
+<script src="/codemirror/lib/codemirror.js"></script>
+</head>
+<body>
+<textarea id="cm-a"></textarea>
+<textarea id="cm-b"></textarea>
+<textarea id="plain" rows="3" cols="40"></textarea>
+<div id="ce" contenteditable="true" style="border:1px solid #ccc;min-height:2em">initial</div>
+<div id="cm6-shell" class="cm-editor"><div class="cm-content"></div></div>
+<div id="pm-shell" class="ProseMirror"></div>
+<div id="monaco-shell" class="monaco-editor"></div>
+<div id="not-editable">plain div</div>
+
+<script src="/ext/page-bridge.js"></script>
+<script>
+window.__cmA = CodeMirror.fromTextArea(document.getElementById('cm-a'), { lineNumbers: false });
+window.__cmB = CodeMirror.fromTextArea(document.getElementById('cm-b'), { lineNumbers: false });
+window.__cmA.getWrapperElement().id = 'wrap-a';
+window.__cmB.getWrapperElement().id = 'wrap-b';
+window.__cmA.setValue('');
+window.__cmB.setValue('');
+
+let seq = 0;
+window.__anchor = (el) => {
+  const id = 'test' + ++seq;
+  el.setAttribute('data-pastepic-anchor', id);
+  return id;
+};
+window.__req = (op, payload = {}) =>
+  new Promise((resolve) => {
+    const id = 'req' + Math.random().toString(36).slice(2);
+    const onResult = (ev) => {
+      let data;
+      try { data = JSON.parse(ev.detail); } catch { return; }
+      if (!data || data.id !== id) return;
+      document.removeEventListener('pastepic-result', onResult, true);
+      resolve(data);
+    };
+    document.addEventListener('pastepic-result', onResult, true);
+    document.dispatchEvent(new CustomEvent('pastepic-request', { detail: JSON.stringify({ id, op, ...payload }) }));
+  });
+</script>
+</body>
+</html>

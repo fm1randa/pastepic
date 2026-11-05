@@ -5,7 +5,9 @@
 
 globalThis.PastePicLimits = {
   autoOrder: ['catbox', 'pomf', 'uguu', 'litterbox', 'tmpfiles'],
-  uploadTimeoutMs: 60000,
+  // Chrome kills the worker when a fetch response takes longer than 30s, so a
+  // 60s timeout would lose the worker before the chain could move on.
+  uploadTimeoutMs: 25000,
   // Extra room for the Imgur hop in front of the chain and for slow bodies.
   guardSlackMs: 15000,
   // Shells whose paste target may not itself be the editable element (ByteMD

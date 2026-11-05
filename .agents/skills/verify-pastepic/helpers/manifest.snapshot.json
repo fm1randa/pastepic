@@ -1,0 +1,19 @@
+{
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://catbox.moe/*",
+    "https://litterbox.catbox.moe/*",
+    "https://pomf.lain.la/*",
+    "https://uguu.se/*",
+    "https://tmpfiles.org/*",
+    "https://api.imgur.com/*"
+  ],
+  "matches": [
+    "https://www.tabnews.com.br/*",
+    "https://tabnews.com.br/*",
+    "https://curso.dev/*",
+    "https://www.curso.dev/*"
+  ]
+}

@@ -68,6 +68,17 @@
     return `<img src="${url}">`;
   }
 
+  // Chunked so a 20MB image does not build a 20M-character string one char at
+  // a time (that path is seconds of jank on the main thread).
+  function toBase64(bytes) {
+    const CHUNK = 0x8000;
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+    }
+    return btoa(binary);
+  }
+
   function imagesFrom(clipboardData) {
     const images = [];
     if (!clipboardData) return images;
@@ -152,9 +163,11 @@
     }
 
     const ext = (image.type.split('/')[1] || 'png').split('+')[0];
+    // base64, not a number array: JSON-serializing 20MB of bytes as numbers
+    // costs ~4 characters each and blows past the 64MiB message limit.
     const resp = await sendToBackground({
       type: 'PASTEPIC_UPLOAD',
-      bytes: Array.from(new Uint8Array(buffer)),
+      b64: toBase64(new Uint8Array(buffer)),
       mime: image.type || 'image/png',
       name: `pastepic-${Date.now()}-${index}.${ext}`,
     });

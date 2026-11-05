@@ -169,10 +169,24 @@ function getSettings() {
   });
 }
 
+function bytesFromMessage(msg) {
+  if (typeof msg.b64 === 'string') {
+    const binary = atob(msg.b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+  // Legacy number-array transport, kept so an in-flight message from an older
+  // content script still uploads instead of failing.
+  if (Array.isArray(msg.bytes)) return new Uint8Array(msg.bytes);
+  throw new Error('payload sem bytes');
+}
+
 async function handleUpload(msg) {
   const settings = await getSettings();
   const wanted = msg.provider || settings.provider || 'auto';
-  const file = makeFile(msg.bytes, msg.mime, msg.name);
+  const bytes = bytesFromMessage(msg);
+  const file = makeFile(bytes, msg.mime, msg.name);
 
   let order;
   if (wanted === 'auto') {
@@ -185,7 +199,7 @@ async function handleUpload(msg) {
   const errors = [];
   for (const name of order) {
     try {
-      const url = await UPLOADERS[name](file, msg.bytes, msg.mime, settings.imgurClientId);
+      const url = await UPLOADERS[name](file, bytes, msg.mime, settings.imgurClientId);
       return { ok: true, url, provider: name, format: settings.format || 'html' };
     } catch (err) {
       errors.push(`${name}: ${err?.message || err}`);

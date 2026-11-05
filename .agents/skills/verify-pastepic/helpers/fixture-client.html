@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<!-- T2b fixture: the CLIENT side only. Loads editor-session.js plus a scripted
+     fake host, so the client is exercised without any real editor. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PastePic contract fixture (client)</title>
+</head>
+<body>
+<textarea id="target"></textarea>
+<textarea id="target2"></textarea>
+
+<script src="/ext/editor-session.js"></script>
+<script>
+// The fake host answers each request from window.__script (array of replies).
+// A reply of null means "do not answer", which exercises the client timeout.
+window.__calls = [];
+window.__script = [];
+document.addEventListener('pastepic-request', (ev) => {
+  const req = JSON.parse(ev.detail);
+  window.__calls.push({ op: req.op, needle: req.needle, text: req.text, anchor: req.anchor });
+  const next = window.__script.shift();
+  const reply = typeof next === 'function' ? next(req) : next;
+  if (!reply) return;
+  document.dispatchEvent(new CustomEvent('pastepic-result', { detail: JSON.stringify({ id: req.id, ...reply }) }));
+}, true);
+window.__open = (el = document.getElementById('target')) => PastePicEditor.open(el);
+</script>
+</body>
+</html>

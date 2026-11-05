@@ -130,6 +130,34 @@ All executable; invocations are shown above, not reverse-engineered:
 `helpers/node_modules/` is harness-only (Playwright, CodeMirror 5) and never
 part of the extension.
 
+## Verification ladder
+
+One entry point runs the tiers that do not need a human:
+
+```sh
+node helpers/verify.mjs --level fast     # T0 + T1 + T2  (~10s, no extension)
+node helpers/verify.mjs --level full     # + T3 + T4 + T5 (~2min, real extension)
+node helpers/verify.mjs --level release  # full, and T5 must find >=2 healthy providers
+```
+
+| Tier | File | Proves | Cannot prove |
+| --- | --- | --- | --- |
+| T0 | `check-static.mjs` | manifest wiring, permissions vs `fetchT`, world fences, MV3 limits, zip = manifest closure | any runtime behavior |
+| T1 | `t1-background.test.mjs` | uploader parsing, chain order, timeout, base64 transport | browser, worker, CORS |
+| T2 | `drive-contract.mjs` | host protocol codes and client retry/cleanup, one side at a time | the world boundary |
+| T3 | `t3-extension.mjs` | the REAL extension with DNS virtualised: worlds, `matches`, `host_permissions`, messages, real editor | real sites, real hosts |
+| T4 | `t4-mutants.mjs` | that the suite goes red: 5 known bug classes must kill T3 | bug classes nobody imagined |
+| T5 | `t5-canary.mjs` | the real uploaders work today (non-blocking) | CORS/Origin acceptance |
+| T6 | human | the real TabNews/curso.dev DOM with a logged-in user | everything else |
+
+T3 redirects `tabnews.com.br`, `curso.dev` and every upload host to a local HTTPS
+server via `--host-resolver-rules`; Chrome still believes it is talking to them,
+so the real manifest decides injection and permissions. The CORS canary proves
+the upload came from the worker's `host_permissions`, not from the page.
+
+`verify.mjs` always prints an `UNPROVEN` list. A green run never means "all".
+
+
 ## Gotchas
 
 - Uploads run IN-PAGE in the fixture but in the SERVICE WORKER in production.

@@ -55,6 +55,8 @@ const server = http.createServer((req, res) => {
   const p = url.pathname;
   if (p === '/health') return send(res, 200, '{"ok":true}', MIME['.json']);
   if (p === '/fixture-cm5.html') return serveFile(res, path.join(here, 'fixture-cm5.html'));
+  if (p === '/fixture-contract.html') return serveFile(res, path.join(here, 'fixture-contract.html'));
+  if (p === '/fixture-client.html') return serveFile(res, path.join(here, 'fixture-client.html'));
   if (p === '/popup-test.html') return servePopupTest(res);
   if (p.startsWith('/codemirror/')) return serveFile(res, path.join(CM_ROOT, p.slice('/codemirror/'.length)));
   if (p.startsWith('/ext/')) {
