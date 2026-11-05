@@ -45,7 +45,21 @@ try {
   const helpClosed = await page.evaluate(() => document.getElementById('imgurHelpText').hidden);
   check('imgur-help-closes', helpClosed === true, `hidden=${helpClosed}`);
 
+  const reuseStart = await page.evaluate(() => ({
+    checked: document.getElementById('sameProviderOnly').checked,
+    hidden: document.getElementById('reuseHelpText').hidden,
+  }));
+  check('reuse-option-off-by-default', reuseStart.checked === false && reuseStart.hidden === true, JSON.stringify(reuseStart));
+  await page.click('#reuseHelp');
+  const reuseHelp = await page.evaluate(() => ({
+    hidden: document.getElementById('reuseHelpText').hidden,
+    expanded: document.getElementById('reuseHelp').getAttribute('aria-expanded'),
+    imgurStillHidden: document.getElementById('imgurHelpText').hidden,
+  }));
+  check('reuse-help-opens', reuseHelp.hidden === false && reuseHelp.expanded === 'true' && reuseHelp.imgurStillHidden, JSON.stringify(reuseHelp));
+
   await page.selectOption('#provider', 'pomf');
+  await page.check('#sameProviderOnly');
   await page.check('input[name="format"][value="markdown"]');
   await page.click('#save');
   await page.waitForFunction(
@@ -55,7 +69,7 @@ try {
     .catch(() => check('saved-feedback', false, 'no "Salvo!" within 5s'));
   const saved = await page.evaluate(() => window.__pastepicSaved);
   check('settings-persisted',
-    saved && saved.provider === 'pomf' && saved.format === 'markdown' && saved.imgurClientId === '',
+    saved && saved.provider === 'pomf' && saved.format === 'markdown' && saved.imgurClientId === '' && saved.sameProviderOnly === true,
     JSON.stringify(saved));
   await page.screenshot({ path: path.join(OUT, 'screenshot.png') });
 } finally {

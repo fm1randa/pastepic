@@ -1,6 +1,7 @@
 (() => {
   const providerEl = document.getElementById('provider');
   const imgurEl = document.getElementById('imgurClientId');
+  const sameProviderEl = document.getElementById('sameProviderOnly');
   const statusEl = document.getElementById('status');
 
   function api() {
@@ -8,9 +9,10 @@
   }
 
   api().storage.sync.get(
-    { provider: 'auto', format: 'html', imgurClientId: '' },
+    { provider: 'auto', format: 'html', imgurClientId: '', sameProviderOnly: false },
     (items) => {
       providerEl.value = items.provider || 'auto';
+      sameProviderEl.checked = items.sameProviderOnly === true;
       imgurEl.value = items.imgurClientId || '';
       const fmt = items.format || 'html';
       const radio = document.querySelector(`input[name="format"][value="${fmt}"]`);
@@ -18,9 +20,9 @@
     }
   );
 
-  const helpBtn = document.getElementById('imgurHelp');
-  const helpText = document.getElementById('imgurHelpText');
-  if (helpBtn && helpText) {
+  for (const helpBtn of document.querySelectorAll('button.info[aria-controls]')) {
+    const helpText = document.getElementById(helpBtn.getAttribute('aria-controls'));
+    if (!helpText) continue;
     helpBtn.addEventListener('click', () => {
       const open = helpBtn.getAttribute('aria-expanded') === 'true';
       helpBtn.setAttribute('aria-expanded', String(!open));
@@ -35,6 +37,7 @@
         provider: providerEl.value,
         format: checked ? checked.value : 'html',
         imgurClientId: imgurEl.value.trim(),
+        sameProviderOnly: sameProviderEl.checked,
       },
       () => {
         statusEl.textContent = 'Salvo!';

@@ -165,15 +165,17 @@ const UPLOADERS = {
   imgur: (file, _bytes, _mime, clientId) => uploadImgur(file, clientId),
 };
 
+const SETTINGS_DEFAULTS = { provider: 'auto', format: 'html', imgurClientId: '', sameProviderOnly: false };
+
 function getSettings() {
   return new Promise((resolve) => {
     try {
       chrome.storage.sync.get(
-        { provider: 'auto', format: 'html', imgurClientId: '' },
-        (items) => resolve(items || { provider: 'auto', format: 'html', imgurClientId: '' })
+        SETTINGS_DEFAULTS,
+        (items) => resolve(items || SETTINGS_DEFAULTS)
       );
     } catch {
-      resolve({ provider: 'auto', format: 'html', imgurClientId: '' });
+      resolve(SETTINGS_DEFAULTS);
     }
   });
 }
@@ -192,8 +194,9 @@ function bytesFromMessage(msg) {
 }
 
 // One storage key per image, so concurrent uploads of different images never
-// read-modify-write a shared object. The cache is a convenience: any storage or
-// hashing failure reads as a miss and the upload proceeds.
+// read-modify-write a shared object. Each key maps provider -> { url, expiresAt },
+// so uploading the same image to a second provider keeps the first link. The
+// cache is a convenience: any storage or hashing failure reads as a miss.
 async function uploadCacheKey(bytes) {
   try {
     const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
@@ -203,26 +206,39 @@ async function uploadCacheKey(bytes) {
   }
 }
 
-async function readCachedUpload(key) {
+async function readCachedLinks(key) {
   try {
-    const entry = (await chrome.storage.local.get(key))[key];
-    if (!entry) return null;
-    if (entry.expiresAt === null || entry.expiresAt - Date.now() > LIMITS.reuseMarginMs) return entry;
-    await chrome.storage.local.remove(key);
+    const stored = (await chrome.storage.local.get(key))[key] || {};
+    const live = Object.fromEntries(
+      Object.entries(stored).filter(
+        ([, e]) => e.expiresAt === null || e.expiresAt - Date.now() > LIMITS.reuseMarginMs
+      )
+    );
+    if (Object.keys(live).length !== Object.keys(stored).length) {
+      await chrome.storage.local.set({ [key]: live });
+    }
+    return live;
   } catch {
-    /* miss */
+    return {};
   }
-  return null;
 }
 
-async function writeCachedUpload(key, provider, url) {
+async function writeCachedLink(key, links, provider, url) {
   try {
     const ms = LIMITS.retentionMs[provider];
     const expiresAt = ms == null ? null : Date.now() + ms;
-    await chrome.storage.local.set({ [key]: { url, provider, expiresAt } });
+    await chrome.storage.local.set({ [key]: { ...links, [provider]: { url, expiresAt } } });
   } catch {
     /* the upload already succeeded */
   }
+}
+
+// Providers this upload would try come first; any other provider's link is a
+// candidate only when the user allows cross-provider reuse.
+function pickCachedLink(links, order, sameProviderOnly) {
+  const candidates = sameProviderOnly ? order : [...order, ...Object.keys(links)];
+  const provider = candidates.find((name) => links[name]);
+  return provider ? { provider, url: links[provider].url } : null;
 }
 
 async function handleUpload(msg) {
@@ -230,12 +246,6 @@ async function handleUpload(msg) {
   const wanted = msg.provider || settings.provider || 'auto';
   const format = settings.format || 'html';
   const bytes = bytesFromMessage(msg);
-
-  const key = await uploadCacheKey(bytes);
-  const cached = key && (await readCachedUpload(key));
-  if (cached) return { ok: true, url: cached.url, provider: cached.provider, format, reused: true };
-
-  const file = makeFile(bytes, msg.mime, msg.name);
 
   let order;
   if (wanted === 'auto') {
@@ -245,11 +255,18 @@ async function handleUpload(msg) {
     order = [wanted];
   }
 
+  const key = await uploadCacheKey(bytes);
+  const links = key ? await readCachedLinks(key) : {};
+  const cached = pickCachedLink(links, order, settings.sameProviderOnly);
+  if (cached) return { ok: true, url: cached.url, provider: cached.provider, format, reused: true };
+
+  const file = makeFile(bytes, msg.mime, msg.name);
+
   const errors = [];
   for (const name of order) {
     try {
       const url = await UPLOADERS[name](file, bytes, msg.mime, settings.imgurClientId);
-      if (key) await writeCachedUpload(key, name, url);
+      if (key) await writeCachedLink(key, links, name, url);
       return { ok: true, url, provider: name, format };
     } catch (err) {
       errors.push(`${name}: ${err?.message || err}`);

@@ -268,14 +268,14 @@ test('reuse: an expired or nearly expired link is replaced by a fresh upload', a
     const probe = load({ routes: catboxOk });
     await upload(probe.api, { provider: 'catbox' });
     const [key] = probe.local.map.keys();
-    const local = memoryStorage({ [key]: { url: 'https://dead/x.png', provider: 'uguu', expiresAt } });
+    const local = memoryStorage({ [key]: { uguu: { url: 'https://dead/x.png', expiresAt } } });
 
     const { api, calls } = load({ routes: catboxOk, local });
     const r = await upload(api, { provider: 'catbox' });
     assert.equal(calls.length, 1);
     assert.equal(r.url, 'https://files.catbox.moe/abc.png');
     assert.equal(r.reused, undefined);
-    assert.equal(local.map.get(key).url, 'https://files.catbox.moe/abc.png');
+    assert.deepEqual(Object.keys(local.map.get(key)), ['catbox']);
   }
 });
 
@@ -287,8 +287,8 @@ test('reuse: the stored expiry follows the provider retention', async () => {
   await upload(api, { provider: 'uguu' });
   await upload(api, { b64: OTHER_PNG_B64, provider: 'catbox' });
   const entries = [...local.map.values()];
-  const uguu = entries.find((e) => e.provider === 'uguu');
-  const catbox = entries.find((e) => e.provider === 'catbox');
+  const uguu = entries.find((e) => e.uguu).uguu;
+  const catbox = entries.find((e) => e.catbox).catbox;
   assert.ok(uguu.expiresAt >= before + 3 * HOUR && uguu.expiresAt <= Date.now() + 3 * HOUR);
   assert.equal(catbox.expiresAt, null);
 });
@@ -322,4 +322,36 @@ test('reuse: storage that throws, or is missing, still uploads', async () => {
 
   const missing = load({ routes: catboxOk, local: null });
   assert.equal((await upload(missing.api, { provider: 'catbox' })).ok, true);
+});
+
+const uguuOk = { 'uguu.se': textResponse(JSON.stringify({ files: [{ url: 'https://u/x.png' }] })) };
+
+test('reuse: sameProviderOnly uploads again when only another provider has the image', async () => {
+  const { api, calls, local } = load({ routes: { ...catboxOk, ...uguuOk }, settings: { sameProviderOnly: true } });
+  await upload(api, { provider: 'catbox' });
+  const r = await upload(api, { provider: 'uguu' });
+  assert.equal(calls.length, 2);
+  assert.equal(r.provider, 'uguu');
+  assert.equal(r.reused, undefined);
+  const [links] = local.map.values();
+  assert.deepEqual(Object.keys(links).sort(), ['catbox', 'uguu']);
+});
+
+test('reuse: sameProviderOnly still reuses the chosen provider link', async () => {
+  const { api, calls } = load({ routes: { ...catboxOk, ...uguuOk }, settings: { sameProviderOnly: true } });
+  await upload(api, { provider: 'catbox' });
+  await upload(api, { provider: 'uguu' });
+  const back = await upload(api, { provider: 'catbox' });
+  assert.equal(calls.length, 2);
+  assert.equal(back.url, 'https://files.catbox.moe/abc.png');
+  assert.equal(back.reused, true);
+});
+
+test('reuse: sameProviderOnly in auto mode reuses any provider of the chain', async () => {
+  const { api, calls } = load({ routes: uguuOk, settings: { sameProviderOnly: true } });
+  const first = await upload(api, { provider: 'uguu' });
+  const r = await upload(api);
+  assert.equal(calls.length, 1);
+  assert.equal(r.url, first.url);
+  assert.equal(r.reused, true);
 });

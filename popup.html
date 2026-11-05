@@ -55,6 +55,14 @@
   <input type="text" id="imgurClientId" placeholder="só se você já tem um" autocomplete="off" spellcheck="false">
   <div class="hint" id="imgurHelpText" hidden>O Imgur <b>fechou novos registros de aplicativo</b> — a página de registro redireciona para a home e não há previsão de reabertura. Este campo serve apenas para quem já possui um Client-ID antigo (nesse caso, o Imgur entra primeiro no modo automático e é permanente).</div>
 
+  <div class="label-row">
+    <label for="sameProviderOnly" style="font-weight:normal"><input type="checkbox" id="sameProviderOnly"> Não reaproveitar uploads de outros provedores</label>
+    <button type="button" class="info" id="reuseHelp" aria-expanded="false"
+      aria-controls="reuseHelpText" aria-label="Sobre o reaproveitamento de uploads"
+      title="Sobre o reaproveitamento de uploads">?</button>
+  </div>
+  <div class="hint" id="reuseHelpText" hidden>Quando você cola uma imagem que já enviou antes, o PastePic reaproveita o link anterior em vez de subir de novo, mesmo que ela esteja em outro provedor. Links de hosts temporários só são reaproveitados enquanto não expiram. Marque esta opção para reaproveitar só links do provedor escolhido acima (no modo automático, de qualquer provedor da lista); se não houver, a imagem é enviada de novo.</div>
+
   <button id="save">Salvar</button>
   <div id="status"></div>
 
