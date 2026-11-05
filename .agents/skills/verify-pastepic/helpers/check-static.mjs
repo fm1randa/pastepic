@@ -44,8 +44,26 @@ const referenced = new Set([
   manifest.background.service_worker,
   manifest.action.default_popup,
 ]);
+const popupEntry = manifest.action.default_popup;
+const popupDir = path.posix.dirname(popupEntry);
 for (const file of [...referenced].sort()) {
-  check(`file-exists ${file}`, exists(file), '');
+  check(`file-exists ${file}`, exists(file), file === popupEntry && !exists(file) ? 'popup not built; run npm run build' : '');
+}
+
+// ── built popup (MV3 CSP: no inline or remote scripts) ──────────────────
+const listFiles = (dir) =>
+  fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? listFiles(`${dir}/${e.name}`) : [`${dir}/${e.name}`]
+  );
+const popupFiles = exists(popupEntry) ? listFiles(popupDir) : [];
+if (exists(popupEntry)) {
+  const html = read(popupEntry);
+  const inline = [...html.matchAll(/<script\b([^>]*)>/g)].filter((m) => !/\bsrc=/.test(m[1]));
+  check('popup-no-inline-script', inline.length === 0, inline.length ? `${inline.length} inline <script>` : '');
+  const remote = [...html.matchAll(/(?:src|href)="(https?:)?\/\/[^"]+"/g)].map((m) => m[0]);
+  check('popup-no-remote-urls', remote.length === 0, remote.join(', '));
+  const missing = [...html.matchAll(/(?:src|href)="\.\/([^"]+)"/g)].map((m) => `${popupDir}/${m[1]}`).filter((f) => !exists(f));
+  check('popup-assets-exist', missing.length === 0, missing.length ? `missing: ${missing.join(', ')}` : `${popupFiles.length} files`);
 }
 for (const file of [...referenced].filter((f) => f.endsWith('.js')).sort()) {
   const r = spawnSync('node', ['--check', path.join(ROOT, file)]);
@@ -116,7 +134,9 @@ check(
 );
 
 // ── popup ↔ uploaders ────────────────────────────────────────────────────
-const options = [...read('popup.html').matchAll(/<option value="([a-z0-9]+)"/g)]
+const settingsSrc = read('popup/src/settings.ts');
+const providerTable = (settingsSrc.match(/PROVIDERS = \[([\s\S]*?)\] as const/) || [, ''])[1];
+const options = [...providerTable.matchAll(/value: "([a-z0-9]+)"/g)]
   .map((m) => m[1])
   .filter((v) => v !== 'auto');
 const uploaders = [...bg.matchAll(/^\s{2}([a-z0-9]+):\s*\(file/gm)].map((m) => m[1]);
@@ -130,10 +150,10 @@ check(
 const zip = `store/pastepic-${manifest.version}.zip`;
 if (exists(zip)) {
   const list = spawnSync('unzip', ['-Z1', path.join(ROOT, zip)], { encoding: 'utf8' }).stdout.trim().split('\n');
-  const expected = [...referenced, 'manifest.json', 'popup.js'].sort();
+  const expected = [...new Set([...referenced, 'manifest.json', ...popupFiles])].sort();
   check('zip-matches-manifest', JSON.stringify(list.sort()) === JSON.stringify(expected), `${list.length} files in zip`);
   const stale = list.filter(
-    (f) => !spawnSync('unzip', ['-p', path.join(ROOT, zip), f], { maxBuffer: 1 << 26 }).stdout.equals(fs.readFileSync(path.join(ROOT, f)))
+    (f) => !exists(f) || !spawnSync('unzip', ['-p', path.join(ROOT, zip), f], { maxBuffer: 1 << 26 }).stdout.equals(fs.readFileSync(path.join(ROOT, f)))
   );
   check('zip-matches-working-tree', stale.length === 0, stale.length ? `stale: ${stale.join(', ')}` : '');
 } else {

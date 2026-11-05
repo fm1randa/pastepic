@@ -1,11 +1,13 @@
 ---
 name: verify-pastepic
-description: Verify the PastePic Chrome extension (paste-to-upload flow) using a local CodeMirror 5 fixture with the real content.js and background.js. Use when changing content.js, background.js, popup.*, or manifest.json, or when a paste/upload/insertion bug is reported.
+description: Verify the PastePic Chrome extension (paste-to-upload flow) using a local CodeMirror 5 fixture with the real content.js and background.js. Use when changing content.js, background.js, popup/, or manifest.json, or when a paste/upload/insertion bug is reported.
 ---
 
 # Verify PastePic
 
-The app is a Chrome MV3 extension with no build step and no local server: a
+The app is a Chrome MV3 extension. The content scripts and the service worker
+have no build step; only the popup does (React + Vite, `popup/` builds into
+`dist/popup/` with `npm run build` at the repo root). A
 content script (`content.js`) intercepts image pastes in the ByteMD/CodeMirror 5
 comment editor of TabNews and curso.dev, and a service worker (`background.js`)
 uploads to free image hosts. Verification drives the REAL `content.js` and
@@ -30,11 +32,13 @@ fixture up at http://127.0.0.1:8931/fixture-cm5.html
 ```
 
 The server serves the fixture page, CodeMirror 5 assets from
-`helpers/node_modules/codemirror`, and the REAL extension files as
-`/ext/content.js`, `/ext/background.js`, `/ext/popup.js`. The server refuses a
+`helpers/node_modules/codemirror`, the REAL extension files as
+`/ext/content.js`, `/ext/background.js` (and the other content scripts), and the
+REAL built popup as `/popup-test.html` with its `/assets/*`. The server refuses a
 second instance while its pid file exists. First-time setup (run once):
 
 ```sh
+npm install && npm run build                         # at the repo root: the popup bundle
 npm install --prefix helpers --no-audit --no-fund   # playwright + codemirror 5
 npx --prefix helpers playwright install chromium    # headless Chromium binary
 ```
@@ -54,7 +58,7 @@ node helpers/doctor.mjs            # or PASTEPIC_VERIFY_PORT=<port> node helpers
 ```
 
 Checks every fixture route returns 200, the real extension files exist and pass
-`node --check`, and the Chromium binary is present. Ends with `DOCTOR PASS`.
+`node --check`, `dist/popup/index.html` is built, and the Chromium binary is present. Ends with `DOCTOR PASS`.
 
 ## Drive
 
@@ -125,14 +129,17 @@ All executable; invocations are shown above, not reverse-engineered:
 - `helpers/drive-paste-image.mjs` — core paste→upload→insert proof.
 - `helpers/drive-passthrough.mjs` — text paste untouched.
 - `helpers/drive-oversize.mjs` — >20MB rejection (no network needed).
-- `helpers/drive-popup-settings.mjs` — popup persistence via `/popup-test.html`.
+- `helpers/drive-popup-settings.mjs` — the built popup via `/popup-test.html`:
+  defaults, help disclosures, Select by clicking, save, a stored-values round
+  trip (`?stored=<json>` seeds the storage stub), light and dark screenshots.
 
 `helpers/node_modules/` is harness-only (Playwright, CodeMirror 5) and never
 part of the extension.
 
 ## Verification ladder
 
-One entry point runs the tiers that do not need a human:
+One entry point runs the tiers that do not need a human. It runs
+`npm run build` at the repo root first and stops if the build fails:
 
 ```sh
 node helpers/verify.mjs --level fast     # T0 + T1 + T2  (~10s, no extension)
@@ -142,7 +149,7 @@ node helpers/verify.mjs --level release  # full, and T5 must find >=2 healthy pr
 
 | Tier | File | Proves | Cannot prove |
 | --- | --- | --- | --- |
-| T0 | `check-static.mjs` | manifest wiring, permissions vs `fetchT`, world fences, MV3 limits, zip = manifest closure | any runtime behavior |
+| T0 | `check-static.mjs` | manifest wiring, permissions vs `fetchT`, world fences, MV3 limits, built popup has no inline or remote script, popup providers = uploaders, zip = manifest closure + `dist/popup/**` | any runtime behavior |
 | T1 | `t1-background.test.mjs` | uploader parsing, chain order, timeout, base64 transport, link reuse and expiry | browser, worker, CORS |
 | T2 | `drive-contract.mjs` | host protocol codes and client retry/cleanup, one side at a time | the world boundary |
 | T3 | `t3-extension.mjs` | the REAL extension with DNS virtualised: worlds, `matches`, `host_permissions`, messages, real editor, link reuse on a second paste | real sites, real hosts |
@@ -178,3 +185,8 @@ the upload came from the worker's `host_permissions`, not from the page.
   is `screenshot.png` + `editor.txt` + `result.json`, not the live URL.
 - Headless-shell Chromium cannot load unpacked extensions, which is why the
   harness injects the real files instead of loading the extension.
+- The popup is served from `dist/`, so a source change in `popup/` is invisible
+  to the harness until `npm run build` runs (`verify.mjs` does it for you; a
+  bare drive run does not).
+- `store/pastepic-<version>.zip` must be rebuilt with `npm run package` after
+  any change to a shipped file, or T0 `zip-matches-working-tree` fails.

@@ -18,7 +18,9 @@ const args = process.argv.slice(2);
 const portIdx = args.indexOf('--port');
 const PORT = Number(args[portIdx + 1] ?? process.env.PASTEPIC_VERIFY_PORT ?? 8931);
 
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json' };
+const POPUP_DIST = path.join(EXT_ROOT, 'dist', 'popup');
+
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.woff2': 'font/woff2' };
 
 function send(res, status, body, type) {
   const buf = Buffer.isBuffer(body) ? body : Buffer.from(body);
@@ -33,20 +35,23 @@ function serveFile(res, filePath) {
   });
 }
 
-// popup.html is served with a chrome.storage stub injected BEFORE popup.js
-// (scaffolding only: the DOM and popup.js are the real files).
+// The built popup is served with a chrome.storage stub injected before its
+// first script (scaffolding only: the DOM and bundle are the real build).
+// `?stored=<json>` seeds what storage.sync already holds, to prove the load path.
 function servePopupTest(res) {
-  fs.readFile(path.join(EXT_ROOT, 'popup.html'), 'utf8', (err, html) => {
-    if (err) return send(res, 404, 'popup.html missing', 'text/plain');
+  fs.readFile(path.join(POPUP_DIST, 'index.html'), 'utf8', (err, html) => {
+    if (err) return send(res, 404, 'dist/popup/index.html missing; run npm run build', 'text/plain');
     const stub = `<script>
 window.__pastepicSaved = null;
+const __stored = JSON.parse(new URLSearchParams(location.search).get('stored') || '{}');
 window.chrome = { storage: { sync: {
-  get(defaults, cb) { cb(Object.assign({}, defaults)); },
+  get(defaults, cb) { cb(Object.assign({}, defaults, __stored)); },
   set(items, cb) { window.__pastepicSaved = items; if (cb) cb(); }
 } } };
+window.close = () => { window.__pastepicClosed = true; };
 </scr` + `ipt>`;
-    html = html.replace('<script src="popup.js"></script>', `${stub}<script src="/ext/popup.js"></script>`);
-    send(res, 200, html, MIME['.html']);
+    const at = html.indexOf('<script');
+    send(res, 200, html.slice(0, at) + stub + html.slice(at), MIME['.html']);
   });
 }
 
@@ -58,10 +63,15 @@ const server = http.createServer((req, res) => {
   if (p === '/fixture-contract.html') return serveFile(res, path.join(here, 'fixture-contract.html'));
   if (p === '/fixture-client.html') return serveFile(res, path.join(here, 'fixture-client.html'));
   if (p === '/popup-test.html') return servePopupTest(res);
+  if (p.startsWith('/assets/')) {
+    const name = p.slice('/assets/'.length);
+    if (name !== path.basename(name)) return send(res, 403, 'forbidden', 'text/plain');
+    return serveFile(res, path.join(POPUP_DIST, 'assets', name));
+  }
   if (p.startsWith('/codemirror/')) return serveFile(res, path.join(CM_ROOT, p.slice('/codemirror/'.length)));
   if (p.startsWith('/ext/')) {
     const name = p.slice('/ext/'.length);
-    if (!['content.js', 'background.js', 'popup.js', 'page-bridge.js', 'editor-session.js', 'limits.js'].includes(name)) return send(res, 403, 'forbidden', 'text/plain');
+    if (!['content.js', 'background.js', 'page-bridge.js', 'editor-session.js', 'limits.js'].includes(name)) return send(res, 403, 'forbidden', 'text/plain');
     return serveFile(res, path.join(EXT_ROOT, name));
   }
   send(res, 404, 'not found', 'text/plain');

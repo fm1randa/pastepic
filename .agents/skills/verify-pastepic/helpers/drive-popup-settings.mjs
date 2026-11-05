@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-// Drive provider-format-settings: the REAL popup.html DOM + REAL popup.js
-// against an in-memory chrome.storage stub (injected by /popup-test.html).
-// Proves provider/format choices persist and the "Salvo!" feedback appears.
+// Drive provider-format-settings: the REAL built popup (dist/popup) against an
+// in-memory chrome.storage stub (injected by /popup-test.html). Controls are
+// found by role and accessible name, the way a user or screen reader finds them.
 import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
@@ -18,60 +19,128 @@ fs.mkdirSync(OUT, { recursive: true });
 const checks = [];
 const check = (id, pass, detail) => { checks.push({ id, pass, detail }); if (!pass) console.error(`FAIL ${id}: ${detail}`); else console.log(`ok ${id}`); };
 
+const popupUrl = (stored) =>
+  `http://127.0.0.1:${PORT}/popup-test.html${stored ? `?stored=${encodeURIComponent(JSON.stringify(stored))}` : ''}`;
+
+async function openPopup(browser, stored) {
+  const page = await browser.newPage({ viewport: { width: 312, height: 640 } });
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  await page.goto(popupUrl(stored), { waitUntil: 'load' });
+  await page.getByRole('button', { name: 'Salvar' }).waitFor({ timeout: 5000 });
+  const ui = {
+    provider: page.getByRole('combobox', { name: 'Servidor de imagens' }),
+    html: page.getByRole('radio', { name: /^HTML/ }),
+    markdown: page.getByRole('radio', { name: /^Markdown/ }),
+    imgurId: page.getByRole('textbox', { name: 'Imgur Client-ID (opcional)' }),
+    imgurHelp: page.getByRole('button', { name: 'Sobre o Imgur Client-ID' }),
+    reuse: page.getByRole('checkbox', { name: 'Não reaproveitar uploads de outros provedores' }),
+    reuseHelp: page.getByRole('button', { name: 'Sobre o reaproveitamento de uploads' }),
+    save: page.getByRole('button', { name: 'Salvar' }),
+    status: page.getByRole('status'),
+  };
+  return { page, ui, errors };
+}
+
+async function disclosure(page, button) {
+  const panel = page.locator(`#${await button.getAttribute('aria-controls')}`);
+  return { expanded: await button.getAttribute('aria-expanded'), visible: await panel.isVisible(), text: await panel.textContent() };
+}
+
+const settled = (page) => page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+
+async function readUi(ui) {
+  return {
+    // The accessible value, as a screen reader announces it (textContent also
+    // carries the icon's hidden glyph).
+    provider: (await ui.provider.ariaSnapshot()).split('": ').pop().trim(),
+    html: await ui.html.isChecked(),
+    markdown: await ui.markdown.isChecked(),
+    imgurClientId: await ui.imgurId.inputValue(),
+    sameProviderOnly: await ui.reuse.isChecked(),
+  };
+}
+
 const browser = await chromium.launch();
 try {
-  const page = await browser.newPage();
-  await page.goto(`http://127.0.0.1:${PORT}/popup-test.html`, { waitUntil: 'load' });
-  const defaults = await page.evaluate(() => ({
-    provider: document.getElementById('provider').value,
-    htmlChecked: document.querySelector('input[name="format"][value="html"]').checked,
-  }));
-  check('defaults-loaded', defaults.provider === 'auto' && defaults.htmlChecked, JSON.stringify(defaults));
+  const { page, ui, errors } = await openPopup(browser);
+  const defaults = await readUi(ui);
+  check('defaults-loaded',
+    defaults.provider === 'Automático (tenta vários)' && defaults.html && !defaults.markdown && defaults.imgurClientId === '',
+    JSON.stringify(defaults));
 
-  // Botao "i": explicacao do Imgur comeca oculta e alterna por clique.
-  const helpStart = await page.evaluate(() => ({
-    hidden: document.getElementById('imgurHelpText').hidden,
-    expanded: document.getElementById('imgurHelp').getAttribute('aria-expanded'),
-  }));
-  check('imgur-help-hidden', helpStart.hidden === true && helpStart.expanded === 'false', JSON.stringify(helpStart));
-  await page.click('#imgurHelp');
-  const helpOpen = await page.evaluate(() => ({
-    hidden: document.getElementById('imgurHelpText').hidden,
-    expanded: document.getElementById('imgurHelp').getAttribute('aria-expanded'),
-    mentionsClosed: document.getElementById('imgurHelpText').textContent.includes('fechou novos registros'),
-  }));
-  check('imgur-help-opens', helpOpen.hidden === false && helpOpen.expanded === 'true' && helpOpen.mentionsClosed, JSON.stringify({ ...helpOpen, mentionsClosed: undefined }));
-  await page.click('#imgurHelp');
-  const helpClosed = await page.evaluate(() => document.getElementById('imgurHelpText').hidden);
-  check('imgur-help-closes', helpClosed === true, `hidden=${helpClosed}`);
+  const imgurStart = await disclosure(page, ui.imgurHelp);
+  check('imgur-help-hidden', !imgurStart.visible && imgurStart.expanded === 'false', JSON.stringify({ ...imgurStart, text: undefined }));
+  await ui.imgurHelp.click();
+  const imgurOpen = await disclosure(page, ui.imgurHelp);
+  check('imgur-help-opens',
+    imgurOpen.visible && imgurOpen.expanded === 'true' && imgurOpen.text.includes('fechou novos registros'),
+    JSON.stringify({ ...imgurOpen, text: undefined }));
+  await ui.imgurHelp.click();
+  const imgurClosed = await disclosure(page, ui.imgurHelp);
+  check('imgur-help-closes', !imgurClosed.visible && imgurClosed.expanded === 'false', JSON.stringify({ ...imgurClosed, text: undefined }));
 
-  const reuseStart = await page.evaluate(() => ({
-    checked: document.getElementById('sameProviderOnly').checked,
-    hidden: document.getElementById('reuseHelpText').hidden,
-  }));
-  check('reuse-option-off-by-default', reuseStart.checked === false && reuseStart.hidden === true, JSON.stringify(reuseStart));
-  await page.click('#reuseHelp');
-  const reuseHelp = await page.evaluate(() => ({
-    hidden: document.getElementById('reuseHelpText').hidden,
-    expanded: document.getElementById('reuseHelp').getAttribute('aria-expanded'),
-    imgurStillHidden: document.getElementById('imgurHelpText').hidden,
-  }));
-  check('reuse-help-opens', reuseHelp.hidden === false && reuseHelp.expanded === 'true' && reuseHelp.imgurStillHidden, JSON.stringify(reuseHelp));
+  const reuseStart = await disclosure(page, ui.reuseHelp);
+  check('reuse-option-off-by-default', !defaults.sameProviderOnly && !reuseStart.visible && reuseStart.expanded === 'false',
+    JSON.stringify({ checked: defaults.sameProviderOnly, visible: reuseStart.visible }));
+  await ui.reuseHelp.click();
+  const reuseOpen = await disclosure(page, ui.reuseHelp);
+  const imgurAfter = await disclosure(page, ui.imgurHelp);
+  check('reuse-help-opens',
+    reuseOpen.visible && reuseOpen.expanded === 'true' && reuseOpen.text.includes('reaproveita o link anterior') && !imgurAfter.visible,
+    JSON.stringify({ visible: reuseOpen.visible, expanded: reuseOpen.expanded, imgurVisible: imgurAfter.visible }));
 
-  await page.selectOption('#provider', 'pomf');
-  await page.check('#sameProviderOnly');
-  await page.check('input[name="format"][value="markdown"]');
-  await page.click('#save');
-  await page.waitForFunction(
-    () => document.getElementById('status').textContent.includes('Salvo!'),
-    null, { timeout: 5000 }
-  ).then(() => check('saved-feedback', true, '"Salvo!" shown'))
+  await ui.provider.click();
+  await page.getByRole('option', { name: 'pomf.lain.la (permanente)' }).click();
+  await page.getByRole('listbox').waitFor({ state: 'hidden', timeout: 5000 });
+  await ui.markdown.click();
+  await ui.reuse.click();
+  const chosen = await readUi(ui);
+  check('choices-shown',
+    chosen.provider === 'pomf.lain.la (permanente)' && chosen.markdown && !chosen.html && chosen.sameProviderOnly,
+    JSON.stringify(chosen));
+
+  await page.emulateMedia({ colorScheme: 'light' });
+  const light = await page.evaluate(() => document.documentElement.classList.contains('dark'));
+  await settled(page);
+  await page.screenshot({ path: path.join(OUT, 'screenshot-light.png'), fullPage: true });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  const dark = await page.waitForFunction(() => document.documentElement.classList.contains('dark'), null, { timeout: 3000 })
+    .then(() => true, () => false);
+  await settled(page);
+  await page.screenshot({ path: path.join(OUT, 'screenshot-dark.png'), fullPage: true });
+  check('color-scheme-follows-system', light === false && dark === true, JSON.stringify({ light, dark }));
+
+  await ui.save.click();
+  await ui.status.filter({ hasText: 'Salvo!' }).waitFor({ timeout: 5000 })
+    .then(() => check('saved-feedback', true, '"Salvo!" shown'))
     .catch(() => check('saved-feedback', false, 'no "Salvo!" within 5s'));
   const saved = await page.evaluate(() => window.__pastepicSaved);
   check('settings-persisted',
-    saved && saved.provider === 'pomf' && saved.format === 'markdown' && saved.imgurClientId === '' && saved.sameProviderOnly === true,
+    isDeepStrictEqual(saved, { provider: 'pomf', format: 'markdown', imgurClientId: '', sameProviderOnly: true }),
     JSON.stringify(saved));
-  await page.screenshot({ path: path.join(OUT, 'screenshot.png') });
+  const closed = await page.waitForFunction(() => window.__pastepicClosed === true, null, { timeout: 3000 }).then(() => true, () => false);
+  check('closes-after-save', closed, `window.close called=${closed}`);
+  check('no-page-errors', errors.length === 0, JSON.stringify(errors));
+
+  const stored = { provider: 'litterbox', format: 'markdown', imgurClientId: 'abc123', sameProviderOnly: true };
+  const roundTrip = await openPopup(browser, stored);
+  const loaded = await readUi(roundTrip.ui);
+  check('stored-values-load',
+    loaded.provider === 'litterbox (temporário, até 72h)' && loaded.markdown && loaded.imgurClientId === 'abc123' && loaded.sameProviderOnly,
+    JSON.stringify(loaded));
+  await roundTrip.ui.imgurId.fill('  xyz  ');
+  await roundTrip.ui.save.click();
+  await roundTrip.ui.status.filter({ hasText: 'Salvo!' }).waitFor({ timeout: 5000 }).catch(() => {});
+  const resaved = await roundTrip.page.evaluate(() => window.__pastepicSaved);
+  check('round-trip-saves-trimmed',
+    isDeepStrictEqual(resaved, { provider: 'litterbox', format: 'markdown', imgurClientId: 'xyz', sameProviderOnly: true }),
+    JSON.stringify(resaved));
+
+  const invalid = await openPopup(browser, { provider: 'bogus', format: 'rtf' });
+  const fallback = await readUi(invalid.ui);
+  check('unknown-stored-values-fall-back', fallback.provider === 'Automático (tenta vários)' && fallback.html, JSON.stringify(fallback));
 } finally {
   await browser.close();
 }
