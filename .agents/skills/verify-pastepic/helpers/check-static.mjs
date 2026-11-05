@@ -127,11 +127,15 @@ check(
 );
 
 // ── package == manifest closure ──────────────────────────────────────────
-const zip = 'store/pastepic-2.0.0.zip';
+const zip = `store/pastepic-${manifest.version}.zip`;
 if (exists(zip)) {
   const list = spawnSync('unzip', ['-Z1', path.join(ROOT, zip)], { encoding: 'utf8' }).stdout.trim().split('\n');
   const expected = [...referenced, 'manifest.json', 'popup.js'].sort();
   check('zip-matches-manifest', JSON.stringify(list.sort()) === JSON.stringify(expected), `${list.length} files in zip`);
+  const stale = list.filter(
+    (f) => !spawnSync('unzip', ['-p', path.join(ROOT, zip), f], { maxBuffer: 1 << 26 }).stdout.equals(fs.readFileSync(path.join(ROOT, f)))
+  );
+  check('zip-matches-working-tree', stale.length === 0, stale.length ? `stale: ${stale.join(', ')}` : '');
 } else {
   check('zip-matches-manifest', false, `${zip} missing`);
 }

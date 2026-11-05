@@ -8,6 +8,15 @@ if (typeof importScripts === 'function') importScripts('limits.js');
 const LIMITS = globalThis.PastePicLimits || {
   autoOrder: ['catbox', 'pomf', 'uguu', 'litterbox', 'tmpfiles'],
   uploadTimeoutMs: 60000,
+  retentionMs: {
+    catbox: null,
+    pomf: null,
+    imgur: null,
+    litterbox: 72 * 60 * 60 * 1000,
+    uguu: 3 * 60 * 60 * 1000,
+    tmpfiles: 60 * 60 * 1000,
+  },
+  reuseMarginMs: 5 * 60 * 1000,
 };
 const AUTO_ORDER = LIMITS.autoOrder;
 
@@ -156,15 +165,17 @@ const UPLOADERS = {
   imgur: (file, _bytes, _mime, clientId) => uploadImgur(file, clientId),
 };
 
+const SETTINGS_DEFAULTS = { provider: 'auto', format: 'html', imgurClientId: '', sameProviderOnly: false };
+
 function getSettings() {
   return new Promise((resolve) => {
     try {
       chrome.storage.sync.get(
-        { provider: 'auto', format: 'html', imgurClientId: '' },
-        (items) => resolve(items || { provider: 'auto', format: 'html', imgurClientId: '' })
+        SETTINGS_DEFAULTS,
+        (items) => resolve(items || SETTINGS_DEFAULTS)
       );
     } catch {
-      resolve({ provider: 'auto', format: 'html', imgurClientId: '' });
+      resolve(SETTINGS_DEFAULTS);
     }
   });
 }
@@ -182,11 +193,59 @@ function bytesFromMessage(msg) {
   throw new Error('payload sem bytes');
 }
 
+// One storage key per image, so concurrent uploads of different images never
+// read-modify-write a shared object. Each key maps provider -> { url, expiresAt },
+// so uploading the same image to a second provider keeps the first link. The
+// cache is a convenience: any storage or hashing failure reads as a miss.
+async function uploadCacheKey(bytes) {
+  try {
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+    return `upload:${Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('')}`;
+  } catch {
+    return null;
+  }
+}
+
+async function readCachedLinks(key) {
+  try {
+    const stored = (await chrome.storage.local.get(key))[key] || {};
+    const live = Object.fromEntries(
+      Object.entries(stored).filter(
+        ([, e]) => e.expiresAt === null || e.expiresAt - Date.now() > LIMITS.reuseMarginMs
+      )
+    );
+    if (Object.keys(live).length !== Object.keys(stored).length) {
+      await chrome.storage.local.set({ [key]: live });
+    }
+    return live;
+  } catch {
+    return {};
+  }
+}
+
+async function writeCachedLink(key, links, provider, url) {
+  try {
+    const ms = LIMITS.retentionMs[provider];
+    const expiresAt = ms == null ? null : Date.now() + ms;
+    await chrome.storage.local.set({ [key]: { ...links, [provider]: { url, expiresAt } } });
+  } catch {
+    /* the upload already succeeded */
+  }
+}
+
+// Providers this upload would try come first; any other provider's link is a
+// candidate only when the user allows cross-provider reuse.
+function pickCachedLink(links, order, sameProviderOnly) {
+  const candidates = sameProviderOnly ? order : [...order, ...Object.keys(links)];
+  const provider = candidates.find((name) => links[name]);
+  return provider ? { provider, url: links[provider].url } : null;
+}
+
 async function handleUpload(msg) {
   const settings = await getSettings();
   const wanted = msg.provider || settings.provider || 'auto';
+  const format = settings.format || 'html';
   const bytes = bytesFromMessage(msg);
-  const file = makeFile(bytes, msg.mime, msg.name);
 
   let order;
   if (wanted === 'auto') {
@@ -196,11 +255,19 @@ async function handleUpload(msg) {
     order = [wanted];
   }
 
+  const key = await uploadCacheKey(bytes);
+  const links = key ? await readCachedLinks(key) : {};
+  const cached = pickCachedLink(links, order, settings.sameProviderOnly);
+  if (cached) return { ok: true, url: cached.url, provider: cached.provider, format, reused: true };
+
+  const file = makeFile(bytes, msg.mime, msg.name);
+
   const errors = [];
   for (const name of order) {
     try {
       const url = await UPLOADERS[name](file, bytes, msg.mime, settings.imgurClientId);
-      return { ok: true, url, provider: name, format: settings.format || 'html' };
+      if (key) await writeCachedLink(key, links, name, url);
+      return { ok: true, url, provider: name, format };
     } catch (err) {
       errors.push(`${name}: ${err?.message || err}`);
     }

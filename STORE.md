@@ -7,7 +7,7 @@ depende de você está marcado como **você**.
 
 | Arquivo | Uso |
 | --- | --- |
-| `store/pastepic-2.0.0.zip` | pacote para upload (manifest na raiz) |
+| `store/pastepic-2.1.0.zip` | pacote para upload (manifest na raiz) |
 | `store/screenshot-1.png`, `store/screenshot-2.png` | 1280×800 |
 | `icons/icon128.png` | ícone da loja |
 | `PRIVACY.md` | política de privacidade — publicada em https://fm1randa.github.io/pastepic/privacy.html |

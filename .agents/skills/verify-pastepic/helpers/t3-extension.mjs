@@ -127,7 +127,7 @@ try {
   const isolatedInvisible = await page.evaluate(() => typeof window.PastePicEditor);
   check('isolated-world-opaque', isolatedInvisible === 'undefined', `page sees PastePicEditor=${isolatedInvisible}`);
 
-  await page.evaluate(async () => {
+  const pasteImage = () => page.evaluate(async () => {
     const canvas = document.createElement('canvas');
     canvas.width = 8; canvas.height = 8;
     canvas.getContext('2d').fillRect(0, 0, 8, 8);
@@ -137,6 +137,7 @@ try {
     window.__cm.focus();
     window.__cm.getInputField().dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt }));
   });
+  await pasteImage();
 
   await page.waitForFunction(
     () => {
@@ -152,6 +153,20 @@ try {
 
   const uploads = log.filter((e) => UPLOAD_HOSTS.includes(e.host) && e.method === 'POST');
   check('upload-hit-fake-host', uploads.length > 0, `${uploads.length} POST(s) to ${uploads.map((u) => u.host).join(',')}`);
+
+  // The same image pasted again must reuse the stored link: no new POST.
+  await pasteImage();
+  const reusedToast = await page.waitForFunction(
+    () => /link reaproveitado/.test(document.getElementById('pastepic-toast')?.textContent || ''),
+    null, { timeout: 30000 }
+  ).then(() => true, () => false);
+  const tags = (await page.evaluate(() => window.__cm.getValue())).match(/<img src="https:\/\/[^"]+">/g) || [];
+  const postsAfter = log.filter((e) => UPLOAD_HOSTS.includes(e.host) && e.method === 'POST').length;
+  check(
+    'reuse-same-image',
+    reusedToast && tags.length === 2 && tags[0] === tags[1] && postsAfter === uploads.length,
+    `toast=${reusedToast} tags=${tags.length} posts ${uploads.length}->${postsAfter}`
+  );
 
   // CORS canary: the page must NOT be able to reach the upload host, which is
   // what proves the worker used host_permissions rather than page privileges.

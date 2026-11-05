@@ -1,4 +1,4 @@
-<!-- translated from README.md @ 837256c (base: 837256c; readme-blob: 46c0bcbba5538eb590641ef0e1142412da7bb3f1); when README.md changes, sync this file and update the SHA and readme-blob (git hash-object README.md) -->
+<!-- translated from README.md @ 9a7918b (base: 9a7918b; readme-blob: 6639cefcb2b125c13aafc00f20c454c370772108); when README.md changes, sync this file and update the SHA and readme-blob (git hash-object README.md) -->
 [English](README.md) · **Português (Brasil)**
 
 > A [README.md](README.md) em inglês é a versão de referência; esta tradução pode ficar atrás dela.
@@ -25,6 +25,7 @@ O campo de comentário do TabNews e do curso.dev não é um `<textarea>` comum: 
 - `page-bridge.js` (mundo da página) executa a troca do placeholder pela tag na instância real do CodeMirror 5.
 - `background.js` (service worker) faz o upload. O upload roda na extensão (não na página) porque hosts como o catbox.moe não liberam CORS para sites — com `host_permissions` a extensão pode chamar a API direto.
 - Ordem no modo **automático**: `catbox.moe` → `pomf.lain.la` → `uguu.se` → `litterbox` (72h) → `tmpfiles.org`. Se um estiver fora do ar (o catbox e o 0x0.st estavam pausados em nov/2026), tenta o próximo.
+- Colar de novo a mesma imagem reaproveita o link em vez de enviá-la outra vez. O `background.js` guarda um SHA-256 de cada imagem enviada com a URL no `chrome.storage.local`, só neste dispositivo, e reaproveita o link enquanto o serviço ainda mantém o arquivo (validade por serviço em `limits.js`). A imagem em si não é guardada. O link pode vir de um serviço diferente do escolhido; a opção **Não reaproveitar uploads de outros provedores** no popup (desligada por padrão) limita o reaproveitamento ao serviço escolhido, ou à cadeia automática.
 - Opcional: se você possui um **Client-ID antigo do Imgur**, configure-o no popup para uploads permanentes via Imgur. Atenção: o Imgur **fechou novos registros de aplicativo** (a página `api.imgur.com/oauth2/addclient` redireciona para a home, sem previsão de reabertura), então não é mais possível criar um Client-ID novo.
 - Formato de inserção configurável no popup: HTML `<img src="...">` (padrão) ou Markdown `![](...)`.
 
