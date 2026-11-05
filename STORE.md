@@ -10,7 +10,7 @@ depende de você está marcado como **você**.
 | `store/pastepic-2.0.0.zip` | pacote para upload (manifest na raiz) |
 | `store/screenshot-1.png`, `store/screenshot-2.png` | 1280×800 |
 | `icons/icon128.png` | ícone da loja |
-| `PRIVACY.md` | política de privacidade (precisa de URL pública) |
+| `PRIVACY.md` | política de privacidade — publicada em https://fm1randa.github.io/pastepic/privacy.html |
 
 ## Campos da listagem (copiar e colar)
 
@@ -72,19 +72,15 @@ chrome.storage.sync da sua conta.
 - **Coleta de dados:** o desenvolvedor não coleta nada. A imagem colada é
   transmitida a um terceiro escolhido pelo usuário — declare isso em "dados
   transmitidos a terceiros" e aponte a política.
-- **URL da política de privacidade:** precisa ser pública (veja abaixo).
+- **URL da política de privacidade:** `https://fm1randa.github.io/pastepic/privacy.html` (já publicada via GitHub Pages)
 
 ## O que só você pode fazer
 
 1. **Conta de desenvolvedor** — uma taxa única de US$ 5 em
    https://chrome.google.com/webstore/devconsole
-2. **Hospedar a política de privacidade** e colar a URL. Opções:
-   - publicar o repositório no GitHub e usar a URL do arquivo (raw ou Pages);
-   - colar o conteúdo em um gist público.
-   A loja exige uma URL acessível; não aceita arquivo local.
-3. **Upload e envio** — "New item", enviar o zip, preencher os campos acima,
+2. **Upload e envio** — "New item", enviar o zip, preencher os campos acima,
    anexar as duas screenshots e o ícone, e clicar em "Submit for review".
-4. **Revisão** — costuma levar de algumas horas a poucos dias. O primeiro envio
+3. **Revisão** — costuma levar de algumas horas a poucos dias. O primeiro envio
    passa por revisão mais cuidadosa.
 
 ## Antes de enviar
