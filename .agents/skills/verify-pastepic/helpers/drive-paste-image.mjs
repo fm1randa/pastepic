@@ -56,10 +56,13 @@ try {
     .then(() => check('placeholder-shown', true, 'placeholder inserted via CM5 API'))
     .catch(() => check('placeholder-shown', false, 'no placeholder within 5s'));
 
-  // Real upload chain: can take a while (60s timeout per provider).
-  // NOTE: waitForFunction resolves to a JSHandle — read the text afterwards.
+  // Terminal toast for any path: success, upload failure, upload-ok/insert-failed,
+  // and insert failure. Missing the last two turns a real bug into a 6-minute wait.
   const toastArrived = await page.waitForFunction(
-    () => { const t = document.getElementById('pastepic-toast'); return !!(t && /Imagem inserida via|Falha no upload/.test(t.textContent)); },
+    () => {
+      const t = document.getElementById('pastepic-toast');
+      return !!(t && /Imagem inserida via|Falha no upload|mas nao inseri no editor|Nao consegui escrever no editor/.test(t.textContent));
+    },
     null, { timeout: 360000 }
   ).then(() => true).catch(() => false);
   const toastText = toastArrived

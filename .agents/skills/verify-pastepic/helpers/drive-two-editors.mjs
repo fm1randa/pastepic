@@ -46,7 +46,10 @@ try {
   });
 
   await page.waitForFunction(
-    () => { const t = document.getElementById('pastepic-toast'); return !!(t && /Imagem inserida via|Falha no upload/.test(t.textContent)); },
+    () => {
+      const t = document.getElementById('pastepic-toast');
+      return !!(t && /Imagem inserida via|Falha no upload|mas nao inseri no editor|Nao consegui escrever no editor/.test(t.textContent));
+    },
     null, { timeout: 360000 }
   ).then(() => check('upload-finished', true, 'result toast appeared'))
     .catch(() => check('upload-finished', false, 'no result toast within 6 min'));
@@ -64,7 +67,7 @@ try {
   await browser.close();
 }
 
-const result = { feature: 'two-editors', runId: RUN_ID, checks, ok: checks.every((c) => c.pass) };
+const result = { feature: 'two-editors', runId: RUN_ID, provider: 'litterbox', usedProvider: 'litterbox', checks, ok: checks.every((c) => c.pass) };
 fs.writeFileSync(path.join(OUT, 'result.json'), JSON.stringify(result, null, 2));
 console.log(result.ok ? 'RESULT PASS' : 'RESULT FAIL');
 process.exit(result.ok ? 0 : 1);

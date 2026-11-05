@@ -26,6 +26,12 @@ try {
     const file = new File([bytes], 'big.png', { type: 'image/png' });
     const dt = new DataTransfer();
     dt.items.add(file);
+    // The placeholder lives for milliseconds (insert, size check, withdraw), so
+    // polling cannot see it. A change listener records that it existed.
+    window.__sawPlaceholder = false;
+    window.__cm.on('change', () => {
+      if (window.__cm.getValue().includes('⏳')) window.__sawPlaceholder = true;
+    });
     window.__cm.focus();
     window.__cm.getInputField().dispatchEvent(
       new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt }));
@@ -38,7 +44,11 @@ try {
   const st = await page.evaluate(() => ({
     value: window.__cm.getValue(),
     uploads: window.__pastepicUploads.length,
+    sawPlaceholder: window.__sawPlaceholder === true,
   }));
+  // v2 inserts before the size check, so cleanup depends on session.release().
+  // Without this, editor-clean would pass even if nothing had been inserted.
+  check('placeholder-shown', st.sawPlaceholder, 'placeholder inserted before the size check');
   check('editor-clean', !st.value.includes('⏳') && !st.value.includes('<img'), `editor value ${JSON.stringify(st.value.slice(0, 80))}`);
   check('no-upload', st.uploads === 0, 'rejected before any upload');
   await page.screenshot({ path: path.join(OUT, 'screenshot.png') });

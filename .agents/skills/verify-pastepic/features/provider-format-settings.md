@@ -14,20 +14,22 @@ Imgur Client-ID; saving persists the choices and confirms with "Salvo!".
 
 - Click the extension icon (popup) on any page, change the fields, press Salvar.
 - Press the round `i` next to "Imgur Client-ID (opcional)" to read why the field only serves legacy client IDs.
-- Fixture equivalent: `/popup-test.html` — the REAL `popup.html` DOM and REAL `popup.js` with only `chrome.storage` stubbed (in-memory).
+- Fixture equivalent: `/popup-test.html` — the REAL `popup.html` DOM and REAL `popup.js` with only `chrome.storage` stubbed.
 
 ## Driving it with the fixture harness
 
 Preconditions:
 
+- Fixture server running: `./launch.sh`.
 - `node helpers/doctor.mjs` ends with `DOCTOR PASS`.
 - No network needed.
 
-- **Defaults then save.** Load, verify defaults, change, save. Run `node helpers/drive-popup-settings.mjs --run-id <id>`. Checks: provider select is `auto` with HTML radio checked; after selecting `pomf` + Markdown + Salvar, `#status` reads `Salvo!` and the stored object is exactly `{provider:'pomf',format:'markdown',imgurClientId:''}`.
-- **Imgur help toggle.** Same run also checks `#imgurHelpText` starts hidden with `aria-expanded="false"`, opens on `#imgurHelp` click (text mentions "fechou novos registros"), and closes on a second click.
+- **Defaults, help toggle, save.** Run `node helpers/drive-popup-settings.mjs --run-id <id> --out artifacts/popup-<id>`. Checks: `defaults-loaded` (provider `auto`, HTML radio checked), `imgur-help-hidden`, `imgur-help-opens` (text mentions "fechou novos registros"), `imgur-help-closes`, `saved-feedback` ("Salvo!"), `settings-persisted` (`{provider:'pomf', format:'markdown', imgurClientId:''}`).
 
 ## Gotchas
 
-- The stub starts empty every run, so defaults always assert against `auto`/HTML — a run cannot observe previously saved values. Cross-run persistence of `chrome.storage.sync` is a browser feature, not extension logic, and is out of scope.
+- The stub returns the same defaults on every `get` and records the last `set`; it does not round-trip. Cross-run persistence of `chrome.storage.sync` is a browser feature and is out of scope.
+- `settings-persisted` compares three values, not object identity: an extra key written by `popup.js` would still pass.
 - `/popup-test.html` injects the stub server-side; `popup.html` itself is unmodified. If the popup's element IDs change, the injection point (`<script src="popup.js">`) and the driver selectors must move together.
+- The popup hint hardcodes the auto chain (`popup.html`) instead of reading `limits.js`, and mentions a "catbox pausado" state that the code does not model — fallback happens on any provider error. Nothing asserts the hint text.
 - The global `button` rule fills the width; the `i` button overrides it via `button.info`. A new plain `button` in the popup would inherit the full-width style.

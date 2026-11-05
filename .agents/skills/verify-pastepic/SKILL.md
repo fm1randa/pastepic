@@ -60,8 +60,9 @@ Checks every fixture route returns 200, the real extension files exist and pass
 
 One script per mapped feature (see `features/`). Every drive launches headless
 Chromium with a FRESH profile, performs the user path, writes
-`artifacts/<feature>/{screenshot.png,result.json[,editor.txt]}`, prints one
-`ok`/`FAIL` line per check plus `RESULT PASS|FAIL`, and exits 0/1:
+`artifacts/<feature>/{screenshot.png,result.json}` plus `editor.txt` or
+`editors.json` where it reads editor state, prints one `ok`/`FAIL` line per
+check plus `RESULT PASS|FAIL`, and exits 0/1:
 
 ```sh
 node helpers/drive-paste-image.mjs --run-id <id> [--provider auto] [--format html] [--out artifacts/paste-image-cm5]
@@ -72,9 +73,10 @@ node helpers/drive-popup-settings.mjs --run-id <id> [--out artifacts/provider-fo
 ```
 
 `--port` overrides the fixture port on every script. `--provider` pins one
-uploader (real network either way); default `auto` exercises the full fallback
-chain but can take minutes (60s timeout per provider) — pin a fast provider for
-iteration, run `auto` before handing over.
+uploader on `drive-paste-image` only (real network either way); `drive-two-editors`
+hardcodes litterbox. Default `auto` exercises the full fallback chain but can
+take minutes (60s timeout per provider) — pin a fast provider for iteration, run
+`auto` before handing over.
 
 ## Evidence
 

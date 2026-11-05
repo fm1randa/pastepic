@@ -43,6 +43,28 @@ try {
   check('field-untouched', r.value === 'draft ', `value still ${JSON.stringify(r.value)}`);
   check('no-upload', r.uploads === 0, 'background never called');
   check('no-toast', r.toast === false, 'no toast shown');
+
+  // Same rule on the CodeMirror target: text pastes must reach the editor.
+  const cm = await page.evaluate(() => {
+    const before = window.__cm.getValue();
+    const dt = new DataTransfer();
+    dt.setData('text/plain', 'hello');
+    const ev = new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt });
+    window.__cm.getInputField().dispatchEvent(ev);
+    return {
+      defaultPrevented: ev.defaultPrevented,
+      value: window.__cm.getValue(),
+      uploads: window.__pastepicUploads.length,
+      toast: !!document.getElementById('pastepic-toast'),
+      before,
+    };
+  });
+  // CodeMirror 5 handles paste itself and calls preventDefault, so the event
+  // flag proves nothing here. The extension's non-interference is what matters:
+  // no toast, no upload, editor value unchanged.
+  check('cm-untouched', cm.value === cm.before, 'editor value unchanged');
+  check('cm-no-upload', cm.uploads === 0, 'no upload triggered from the editor');
+  check('cm-no-toast', cm.toast === false, 'no toast shown for a text paste');
   await page.screenshot({ path: path.join(OUT, 'screenshot.png') });
 } finally {
   await browser.close();

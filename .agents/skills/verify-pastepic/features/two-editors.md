@@ -10,7 +10,6 @@ document, so a paste in the second editor wrote into the first.
 - `other-editor-is-first` the decoy is genuinely first in DOM order.
 - `tag-in-target-editor` the paste lands in the editor that received the event.
 - `other-editor-untouched` the decoy keeps its original text.
-- `no-placeholder-left` neither editor keeps a `⏳`.
 
 ## How to get to it (user POV)
 
@@ -22,16 +21,20 @@ document, so a paste in the second editor wrote into the first.
 
 Preconditions:
 
+- Fixture server running: `./launch.sh`.
 - `node helpers/doctor.mjs` ends with `DOCTOR PASS`.
-- Network access to the upload hosts (real upload; `provider=litterbox` pins a
-  fast one).
+- Network access (the driver hardcodes `provider=litterbox`).
 
-- **Paste into the second editor.** Run `node helpers/drive-two-editors.mjs --run-id <id>`. Checks: both instances exist, the decoy is first, the upload finishes, the target holds the `<img>` tag, the decoy still reads `other editor text`, and neither contains `⏳`. Artifacts: `editors.json`, `screenshot.png`, `result.json`.
+- **Paste into the second editor.** Run `node helpers/drive-two-editors.mjs --run-id <id> --out artifacts/two-editors-<id>`. Checks: both instances exist, the decoy is first in DOM order, the upload finishes, the target holds the `<img>` tag, the decoy still reads `other editor text`. Artifacts: `editors.json`, `screenshot.png`, `result.json` (records `provider` and `usedProvider`).
 
 ## Gotchas
 
 - The decoy must be created BEFORE the target in DOM order, otherwise the old
   first-match bug would not be exercised and the test would pass vacuously.
-- This is the regression that proves the adapter host resolves by anchor, not by
-  document order. If someone reintroduces `document.querySelector('.CodeMirror')`,
-  `other-editor-untouched` fails.
+  `other-editor-is-first` is what proves non-vacuity.
+- A regression in the INSERT path is caught by `other-editor-untouched`. A
+  regression in the SWAP path is not: `replaceNeedle` returns false on the decoy
+  because the needle is not there, so the decoy stays clean. That one shows up
+  as `tag-in-target-editor` failing with a leftover `⏳`.
+- Always pass a fresh `--out`. A failed `page.goto` exits before writing
+  `result.json`, so a reused directory would leave a stale PASS behind.
