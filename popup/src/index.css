@@ -183,3 +183,8 @@
         @apply bg-background text-foreground font-sans;
     }
 }
+
+/* Chrome injects an unlayered `body { font-family: system-ui }` into extension pages, which beats @layer base. */
+html body {
+    font-family: var(--font-sans);
+}

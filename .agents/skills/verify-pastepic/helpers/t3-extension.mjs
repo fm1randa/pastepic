@@ -179,6 +179,21 @@ try {
     }
   });
   check('cors-canary', pageFetch.startsWith('blocked'), pageFetch);
+
+  // Chrome injects its own body font into extension pages; only a loaded extension shows it.
+  if (sw) {
+    const popup = await context.newPage();
+    await popup.goto(`chrome-extension://${new URL(sw.url()).host}/dist/popup/index.html`);
+    await popup.getByRole('button', { name: 'Salvar' }).waitFor({ timeout: 5000 });
+    const fonts = await popup.evaluate(async () => {
+      await document.fonts.ready;
+      const loaded = [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family);
+      return { body: getComputedStyle(document.body).fontFamily, loaded };
+    });
+    check('popup-fonts-in-extension',
+      fonts.body.startsWith('"Space Grotesk') && ['Silkscreen', 'Space Grotesk Variable'].every((f) => fonts.loaded.includes(f)),
+      JSON.stringify(fonts));
+  }
 } finally {
   await context.close();
   server.close();

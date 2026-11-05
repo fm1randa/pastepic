@@ -152,7 +152,7 @@ node helpers/verify.mjs --level release  # full, and T5 must find >=2 healthy pr
 | T0 | `check-static.mjs` | manifest wiring, permissions vs `fetchT`, world fences, MV3 limits, built popup has no inline or remote script, popup providers = uploaders, zip = manifest closure + `dist/popup/**` | any runtime behavior |
 | T1 | `t1-background.test.mjs` | uploader parsing, chain order, timeout, base64 transport, link reuse and expiry | browser, worker, CORS |
 | T2 | `drive-contract.mjs` | host protocol codes and client retry/cleanup, one side at a time | the world boundary |
-| T3 | `t3-extension.mjs` | the REAL extension with DNS virtualised: worlds, `matches`, `host_permissions`, messages, real editor, link reuse on a second paste | real sites, real hosts |
+| T3 | `t3-extension.mjs` | the REAL extension with DNS virtualised: worlds, `matches`, `host_permissions`, messages, real editor, link reuse on a second paste, popup fonts under Chrome's extension-page styles | real sites, real hosts |
 | T4 | `t4-mutants.mjs` | that the suite goes red: 5 known bug classes must kill T3 | bug classes nobody imagined |
 | T5 | `t5-canary.mjs` | the real uploaders work today (non-blocking) | CORS/Origin acceptance |
 | T6 | human | the real TabNews/curso.dev DOM with a logged-in user | everything else |
