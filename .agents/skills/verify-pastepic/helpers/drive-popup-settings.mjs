@@ -35,6 +35,7 @@ async function openPopup(browser, stored) {
     markdown: page.getByRole('radio', { name: /^Markdown/ }),
     imgurId: page.getByRole('textbox', { name: 'Imgur Client-ID (opcional)' }),
     providerHelp: page.getByRole('button', { name: 'Sobre o modo automático' }),
+    advanced: page.getByRole('button', { name: 'Opções avançadas' }),
     imgurHelp: page.getByRole('button', { name: 'Sobre o Imgur Client-ID' }),
     reuse: page.getByRole('checkbox', { name: 'Não reaproveitar uploads de outros provedores' }),
     reuseHelp: page.getByRole('button', { name: 'Sobre o reaproveitamento de uploads' }),
@@ -52,6 +53,7 @@ const tooltipShown = (page, text) => page.getByRole('tooltip').filter({ hasText:
 const settled = (page) => page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
 
 async function readUi(ui) {
+  if (await ui.advanced.getAttribute('aria-expanded') !== 'true') await ui.advanced.click();
   return {
     // The accessible value, as a screen reader announces it (textContent also
     // carries the icon's hidden glyph).
@@ -66,7 +68,14 @@ async function readUi(ui) {
 const browser = await chromium.launch();
 try {
   const { page, ui, errors } = await openPopup(browser);
+  check('advanced-collapsed-by-default',
+    (await ui.advanced.getAttribute('aria-expanded')) === 'false' && !(await ui.imgurId.isVisible()) && !(await ui.reuse.isVisible()),
+    'Imgur Client-ID and the reuse option start hidden');
+  await page.screenshot({ path: path.join(OUT, 'screenshot-collapsed.png') });
   const defaults = await readUi(ui);
+  check('advanced-expands',
+    (await ui.advanced.getAttribute('aria-expanded')) === 'true' && (await ui.imgurId.isVisible()) && (await ui.reuse.isVisible()),
+    'clicking Opções avançadas shows both options');
   check('defaults-loaded',
     defaults.provider === 'Automático (tenta vários)' && defaults.html && !defaults.markdown && defaults.imgurClientId === '',
     JSON.stringify(defaults));
@@ -87,11 +96,13 @@ try {
   check('imgur-help-closes', !(await tooltipShown(page, IMGUR_HELP)), 'moving away hides it');
 
   check('reuse-option-off-by-default', !defaults.sameProviderOnly, JSON.stringify({ checked: defaults.sameProviderOnly }));
-  await ui.reuseHelp.focus();
+  // Tab from the checkbox: tooltips open on keyboard focus, not on focus() after a pointer click.
+  await ui.reuse.focus();
+  await page.keyboard.press('Tab');
   await page.getByRole('tooltip').filter({ hasText: REUSE_HELP }).waitFor({ timeout: 3000 }).catch(() => {});
   check('reuse-help-on-focus',
     (await tooltipShown(page, REUSE_HELP)) && !(await tooltipShown(page, IMGUR_HELP)),
-    'keyboard focus shows only the reuse help');
+    JSON.stringify({ reuse: await tooltipShown(page, REUSE_HELP), imgur: await tooltipShown(page, IMGUR_HELP), active: await page.evaluate(() => document.activeElement?.getAttribute('aria-label')) }));
   await page.keyboard.press('Escape');
   await page.getByRole('tooltip').waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
 
@@ -138,6 +149,8 @@ try {
 
   const stored = { provider: 'litterbox', format: 'markdown', imgurClientId: 'abc123', sameProviderOnly: true };
   const roundTrip = await openPopup(browser, stored);
+  check('advanced-open-when-set', (await roundTrip.ui.advanced.getAttribute('aria-expanded')) === 'true',
+    'stored advanced values open the section');
   const loaded = await readUi(roundTrip.ui);
   check('stored-values-load',
     loaded.provider === 'litterbox (temporário, até 72h)' && loaded.markdown && loaded.imgurClientId === 'abc123' && loaded.sameProviderOnly,
