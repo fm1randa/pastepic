@@ -1,3 +1,5 @@
+**Português (Brasil)** · [English](README.en.md)
+
 # PastePic
 
 Extensão para Chrome (Manifest V3) que cola imagens do clipboard direto no editor de texto:
@@ -61,5 +63,5 @@ Evite habilitar em sites que já tratam paste de imagem nativamente (GitHub, Git
 
 - Imagens de até 20 MB (limite da extensão; cada host tem o seu).
 - Hosts temporários (uguu, litterbox, tmpfiles) apagam o arquivo depois de horas — para comentários permanentes, prefira catbox/pomf/Imgur.
-- Cada tentativa de upload tem timeout de 60s: se um servidor travar, o modo automático passa para o próximo em vez de deixar o `⏳ Enviando imagem...` preso. Há ainda uma trava de segurança de 3 min no total.
+- Cada tentativa de upload tem timeout de 60s: se um servidor travar, o modo automático passa para o próximo em vez de deixar o `⏳ Enviando imagem...` preso. A trava total de resposta é derivada da cadeia (`60s × (provedores + 1) + 15s`), hoje 375s.
 - Se o placeholder ficar preso ou der erro: abra `chrome://extensions`, clique em **recarregar (⟳)** no cartão da extensão e tente de novo. Para ver o erro exato, em `chrome://extensions` ative o modo desenvolvedor e clique em **service worker** no cartão da extensão para abrir o console (os erros saem com o prefixo `[PastePic]`).
