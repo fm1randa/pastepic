@@ -47,7 +47,13 @@ async function openPopup(browser, stored) {
 
 const IMGUR_HELP = 'fechou novos registros';
 const REUSE_HELP = 'reaproveita o link anterior';
-const PROVIDER_HELP = 'catbox → pomf → uguu → litterbox → tmpfiles';
+const PROVIDER_HELP = 'No modo automático';
+const DEFAULT_ORDER = ['catbox', 'pomf', 'uguu', 'litterbox', 'tmpfiles'];
+const orderList = (page) => page.getByRole('list', { name: 'Ordem do automático' });
+// Each row reads "<n><host><retention>"; name it by the chain host it starts with.
+const readOrder = async (page) =>
+  (await orderList(page).getByRole('listitem').allTextContents())
+    .map((t) => DEFAULT_ORDER.find((name) => t.replace(/^\d+/, '').startsWith(name)) ?? t);
 const tooltipShown = (page, text) => page.getByRole('tooltip').filter({ hasText: text }).isVisible();
 
 const settled = (page) => page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
@@ -106,6 +112,22 @@ try {
   await page.keyboard.press('Escape');
   await page.getByRole('tooltip').waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
 
+  check('auto-order-default', isDeepStrictEqual(await readOrder(page), DEFAULT_ORDER), JSON.stringify(await readOrder(page)));
+  check('auto-order-edges-disabled',
+    (await page.getByRole('button', { name: 'Subir catbox.moe (permanente)' }).isDisabled()) &&
+    (await page.getByRole('button', { name: 'Descer tmpfiles.org (temporário)' }).isDisabled()),
+    'first cannot go up, last cannot go down');
+  await page.getByRole('button', { name: 'Subir uguu.se (temporário)' }).click();
+  const moved = await readOrder(page);
+  check('auto-order-moves', isDeepStrictEqual(moved, ['catbox', 'uguu', 'pomf', 'litterbox', 'tmpfiles']), JSON.stringify(moved));
+  await ui.providerHelp.hover();
+  await page.getByRole('tooltip').filter({ hasText: PROVIDER_HELP }).waitFor({ timeout: 3000 }).catch(() => {});
+  check('provider-help-follows-order', await tooltipShown(page, 'catbox → uguu → pomf → litterbox → tmpfiles'), 'tooltip lists the edited chain');
+  await page.mouse.move(0, 600);
+  await page.getByRole('tooltip').waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+  await settled(page);
+  await page.screenshot({ path: path.join(OUT, 'screenshot-auto-order.png'), fullPage: true });
+
   await ui.provider.click();
   await page.getByRole('option', { name: 'pomf.lain.la (permanente)' }).click();
   await page.getByRole('listbox').waitFor({ state: 'hidden', timeout: 5000 });
@@ -115,6 +137,7 @@ try {
   check('choices-shown',
     chosen.provider === 'pomf.lain.la (permanente)' && chosen.markdown && !chosen.html && chosen.sameProviderOnly,
     JSON.stringify(chosen));
+  check('auto-order-only-in-auto', !(await orderList(page).isVisible()), 'the order list hides when a host is pinned');
 
   await page.emulateMedia({ colorScheme: 'light' });
   const light = await page.evaluate(() => document.documentElement.classList.contains('dark'));
@@ -141,7 +164,7 @@ try {
     .catch(() => check('saved-feedback', false, 'no "Salvo!" within 5s'));
   const saved = await page.evaluate(() => window.__pastepicSaved);
   check('settings-persisted',
-    isDeepStrictEqual(saved, { provider: 'pomf', format: 'markdown', imgurClientId: '', sameProviderOnly: true }),
+    isDeepStrictEqual(saved, { provider: 'pomf', format: 'markdown', imgurClientId: '', sameProviderOnly: true, autoOrder: ['catbox', 'uguu', 'pomf', 'litterbox', 'tmpfiles'] }),
     JSON.stringify(saved));
   const closed = await page.waitForFunction(() => window.__pastepicClosed === true, null, { timeout: 3000 }).then(() => true, () => false);
   check('closes-after-save', closed, `window.close called=${closed}`);
@@ -160,8 +183,17 @@ try {
   await roundTrip.ui.status.filter({ hasText: 'Salvo!' }).waitFor({ timeout: 5000 }).catch(() => {});
   const resaved = await roundTrip.page.evaluate(() => window.__pastepicSaved);
   check('round-trip-saves-trimmed',
-    isDeepStrictEqual(resaved, { provider: 'litterbox', format: 'markdown', imgurClientId: 'xyz', sameProviderOnly: true }),
+    isDeepStrictEqual(resaved, { provider: 'litterbox', format: 'markdown', imgurClientId: 'xyz', sameProviderOnly: true, autoOrder: DEFAULT_ORDER }),
     JSON.stringify(resaved));
+
+  const partial = await openPopup(browser, { autoOrder: ['tmpfiles', 'bogus', 'catbox', 'tmpfiles'] });
+  check('custom-order-opens-advanced', (await partial.ui.advanced.getAttribute('aria-expanded')) === 'true', 'a non-default order opens the section');
+  const resolved = await readOrder(partial.page);
+  check('stored-order-resolves',
+    isDeepStrictEqual(resolved, ['tmpfiles', 'catbox', 'pomf', 'uguu', 'litterbox']),
+    JSON.stringify(resolved));
+  await partial.page.getByRole('button', { name: 'Restaurar' }).click();
+  check('order-restores', isDeepStrictEqual(await readOrder(partial.page), DEFAULT_ORDER), JSON.stringify(await readOrder(partial.page)));
 
   const invalid = await openPopup(browser, { provider: 'bogus', format: 'rtf' });
   const fallback = await readUi(invalid.ui);

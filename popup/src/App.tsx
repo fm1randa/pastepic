@@ -1,6 +1,6 @@
 import { useEffect, useId, useState, type ReactNode } from "react"
 import { Collapsible } from "@base-ui/react/collapsible"
-import { ChevronDown, CircleHelp, Info } from "lucide-react"
+import { ArrowDown, ArrowUp, ChevronDown, CircleHelp, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DEFAULTS, PROVIDERS, loadSettings, saveSettings, type Format, type Settings } from "@/settings"
+import { AUTO_ORDER, DEFAULTS, PROVIDERS, isDefaultOrder, providerLabel, loadSettings, saveSettings, type Format, type Settings } from "@/settings"
 
 const fieldLabel = "font-heading text-xs font-normal tracking-wider"
 
@@ -25,6 +25,49 @@ function Help({ label, icon, children }: { label: string; icon: ReactNode; child
         {children}
       </TooltipContent>
     </Tooltip>
+  )
+}
+
+function AutoOrder({ order, onChange }: { order: Settings["autoOrder"]; onChange: (order: Settings["autoOrder"]) => void }) {
+  const move = (from: number, to: number) => {
+    const next = [...order]
+    const [name] = next.splice(from, 1)
+    next.splice(to, 0, name)
+    onChange(next)
+  }
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between gap-1">
+        <span id="auto-order-label" className={fieldLabel}>Ordem do automático</span>
+        {!isDefaultOrder(order) && (
+          <Button variant="ghost" size="sm" className="h-6 px-1 text-link" onClick={() => onChange([...AUTO_ORDER])}>
+            Restaurar
+          </Button>
+        )}
+      </div>
+      <ol aria-labelledby="auto-order-label" className="flex flex-col border border-border">
+        {order.map((name, i) => {
+          const label = providerLabel(name)
+          return (
+            <li key={name} className="flex items-center gap-2 border-b border-border py-0.5 pr-0.5 pl-2 last:border-b-0">
+              <span className="w-3 font-mono text-xs text-muted-foreground">{i + 1}</span>
+              <span className="flex flex-1 items-baseline gap-1.5 truncate">
+                {label.split(" (")[0]}
+                <span className="text-xs text-muted-foreground">{label.includes("temporário") ? "temporário" : "permanente"}</span>
+              </span>
+              <Button variant="ghost" size="icon-sm" className="size-6" aria-label={`Subir ${label}`}
+                disabled={i === 0} onClick={() => move(i, i - 1)}>
+                <ArrowUp />
+              </Button>
+              <Button variant="ghost" size="icon-sm" className="size-6" aria-label={`Descer ${label}`}
+                disabled={i === order.length - 1} onClick={() => move(i, i + 1)}>
+                <ArrowDown />
+              </Button>
+            </li>
+          )
+        })}
+      </ol>
+    </div>
   )
 }
 
@@ -53,8 +96,8 @@ export function App() {
         <div className="flex items-center gap-1">
           <Label htmlFor="provider" className={fieldLabel}>Servidor</Label>
           <Help label="Sobre o modo automático" icon={<Info />}>
-            <p>No modo automático: catbox → pomf → uguu → litterbox → tmpfiles.</p>
-            <p>Se o catbox estiver pausado, cai para o próximo.</p>
+            <p>No modo automático: {settings.autoOrder.join(" → ")}.</p>
+            <p>Se um servidor estiver fora do ar, cai para o próximo. A ordem pode ser mudada em Opções avançadas.</p>
           </Help>
         </div>
         <Select
@@ -93,7 +136,8 @@ export function App() {
       <Collapsible.Root
         defaultOpen={
           settings.imgurClientId !== DEFAULTS.imgurClientId ||
-          settings.sameProviderOnly !== DEFAULTS.sameProviderOnly
+          settings.sameProviderOnly !== DEFAULTS.sameProviderOnly ||
+          !isDefaultOrder(settings.autoOrder)
         }
         className="flex flex-col gap-2.5"
       >
@@ -104,6 +148,9 @@ export function App() {
           <ChevronDown className="transition-transform group-data-[panel-open]:rotate-180" />
         </Collapsible.Trigger>
         <Collapsible.Panel className="flex flex-col gap-2.5">
+          {settings.provider === "auto" && (
+            <AutoOrder order={settings.autoOrder} onChange={(autoOrder) => update({ autoOrder })} />
+          )}
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-1">
               <Label htmlFor="imgurClientId" className={fieldLabel}>Imgur Client-ID (opcional)</Label>
