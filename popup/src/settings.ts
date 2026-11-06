@@ -1,5 +1,5 @@
 export const PROVIDERS = [
-  { value: "auto", label: "Automático (tenta vários)" },
+  { value: "auto", label: "Automático" },
   { value: "catbox", label: "catbox.moe (permanente)" },
   { value: "pomf", label: "pomf.lain.la (permanente)" },
   { value: "uguu", label: "uguu.se (temporário)" },

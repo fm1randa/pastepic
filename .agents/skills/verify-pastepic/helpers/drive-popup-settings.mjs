@@ -77,7 +77,7 @@ try {
     (await ui.advanced.getAttribute('aria-expanded')) === 'true' && (await ui.imgurId.isVisible()) && (await ui.reuse.isVisible()),
     'clicking Opções avançadas shows both options');
   check('defaults-loaded',
-    defaults.provider === 'Automático (tenta vários)' && defaults.html && !defaults.markdown && defaults.imgurClientId === '',
+    defaults.provider === 'Automático' && defaults.html && !defaults.markdown && defaults.imgurClientId === '',
     JSON.stringify(defaults));
 
   check('help-hidden-at-start',
@@ -165,7 +165,7 @@ try {
 
   const invalid = await openPopup(browser, { provider: 'bogus', format: 'rtf' });
   const fallback = await readUi(invalid.ui);
-  check('unknown-stored-values-fall-back', fallback.provider === 'Automático (tenta vários)' && fallback.html, JSON.stringify(fallback));
+  check('unknown-stored-values-fall-back', fallback.provider === 'Automático' && fallback.html, JSON.stringify(fallback));
 } finally {
   await browser.close();
 }
