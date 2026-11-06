@@ -30,7 +30,7 @@ async function openPopup(browser, stored) {
   await page.goto(popupUrl(stored), { waitUntil: 'load' });
   await page.getByRole('button', { name: 'Salvar' }).waitFor({ timeout: 5000 });
   const ui = {
-    provider: page.getByRole('combobox', { name: 'Servidor de imagens' }),
+    provider: page.getByRole('combobox', { name: 'Servidor' }),
     html: page.getByRole('radio', { name: /^HTML/ }),
     markdown: page.getByRole('radio', { name: /^Markdown/ }),
     imgurId: page.getByRole('textbox', { name: 'Imgur Client-ID (opcional)' }),

@@ -51,7 +51,7 @@ export function App() {
 
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center gap-1">
-          <Label htmlFor="provider" className={fieldLabel}>Servidor de imagens</Label>
+          <Label htmlFor="provider" className={fieldLabel}>Servidor</Label>
           <Help label="Sobre o modo automático" icon={<Info />}>
             <p>No modo automático: catbox → pomf → uguu → litterbox → tmpfiles.</p>
             <p>Se o catbox estiver pausado, cai para o próximo.</p>
