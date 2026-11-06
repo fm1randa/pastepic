@@ -74,7 +74,7 @@ export function App() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <span id="format-label" className={fieldLabel}>Formato inserido no comentário</span>
+        <span id="format-label" className={fieldLabel}>Formato</span>
         <RadioGroup
           aria-labelledby="format-label"
           value={settings.format}
