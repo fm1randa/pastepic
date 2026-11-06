@@ -161,7 +161,6 @@ export function App() {
             </div>
             <Input
               id="imgurClientId"
-              placeholder="só se você já tem um"
               autoComplete="off"
               spellCheck={false}
               value={settings.imgurClientId}
