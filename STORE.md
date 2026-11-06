@@ -7,7 +7,7 @@ depende de você está marcado como **você**.
 
 | Arquivo | Uso |
 | --- | --- |
-| `store/pastepic-2.1.0.zip` | pacote para upload (manifest na raiz) |
+| `store/pastepic-2.2.0.zip` | pacote para upload (manifest na raiz), gerado por `npm run package` |
 | `store/screenshot-1.png`, `store/screenshot-2.png` | 1280×800 |
 | `icons/icon128.png` | ícone da loja |
 | `PRIVACY.md` | política de privacidade — publicada em https://fm1randa.github.io/pastepic/privacy.html |
@@ -85,8 +85,13 @@ chrome.storage.sync da sua conta.
 
 ## Antes de enviar
 
-- [ ] Testar a v2.0.0 no curso.dev com a extensão carregada (o harness prova o
+- [ ] Rodar `npm run package` e conferir que `node .agents/skills/verify-pastepic/helpers/verify.mjs --level full`
+      passa (o T0 compara o zip com a árvore de trabalho).
+- [ ] Testar a v2.2.0 no curso.dev com a extensão carregada (o harness prova o
       contrato, não a página real).
+- [ ] Abrir o popup da extensão carregada e salvar uma configuração (o harness
+      prova o popup compilado fora da extensão).
 - [ ] Testar no TabNews.
 - [ ] Confirmar que o zip tem `manifest.json` na raiz.
-- [ ] Conferir que não há `node_modules`, `store/`, `tools/` nem `.agents/` no zip.
+- [ ] Conferir que não há `node_modules`, `popup/` (código-fonte), `store/`, `tools/` nem `.agents/` no zip;
+      do popup só entra `dist/popup/`.

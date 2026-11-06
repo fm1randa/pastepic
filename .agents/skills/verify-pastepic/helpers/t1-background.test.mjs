@@ -159,6 +159,27 @@ test('auto: a configured Imgur Client-ID puts Imgur first', async () => {
   assert.equal(calls.length, 1);
 });
 
+test('auto: a stored order changes which host is tried first', async () => {
+  const { api, calls } = load({
+    settings: { autoOrder: ['tmpfiles', 'uguu', 'catbox', 'pomf', 'litterbox'] },
+    routes: {
+      'tmpfiles.org': textResponse('down', 500),
+      'uguu.se': textResponse(JSON.stringify({ success: true, files: [{ url: 'https://u/x.png' }] })),
+    },
+  });
+  const r = await upload(api);
+  assert.equal(r.provider, 'uguu');
+  assert.deepEqual(calls.map((c) => new URL(c.url).host), ['tmpfiles.org', 'uguu.se']);
+});
+
+test('auto: a corrupt stored order keeps every chain host', async () => {
+  const { api } = load();
+  const resolve = (stored) => [...api.resolveAutoOrder(stored)];
+  assert.deepEqual(resolve(undefined), [...LIMITS.autoOrder]);
+  assert.deepEqual(resolve('catbox'), [...LIMITS.autoOrder]);
+  assert.deepEqual(resolve(['uguu', 'bogus', 'uguu', 'imgur']), ['uguu', ...LIMITS.autoOrder.filter((n) => n !== 'uguu')]);
+});
+
 test('pinned provider has no fallback', async () => {
   const { api, calls } = load({
     routes: { 'catbox.moe': textResponse('down', 500), 'pomf.lain.la': textResponse('{}') },

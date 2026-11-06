@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, '..', '..', '..', '..');
-const FILES = ['manifest.json', 'content.js', 'editor-session.js', 'page-bridge.js', 'background.js', 'limits.js', 'popup.html', 'popup.js'];
+const FILES = ['manifest.json', 'content.js', 'editor-session.js', 'page-bridge.js', 'background.js', 'limits.js'];
 
 const MUTANTS = [
   {
@@ -56,6 +56,7 @@ for (const mutant of MUTANTS) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `pastepic-mut-${mutant.id}-`));
   for (const file of FILES) fs.copyFileSync(path.join(ROOT, file), path.join(dir, file));
   fs.cpSync(path.join(ROOT, 'icons'), path.join(dir, 'icons'), { recursive: true });
+  fs.cpSync(path.join(ROOT, 'dist', 'popup'), path.join(dir, 'dist', 'popup'), { recursive: true });
 
   const target = path.join(dir, mutant.file);
   const before = fs.readFileSync(target, 'utf8');

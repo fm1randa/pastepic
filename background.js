@@ -165,7 +165,15 @@ const UPLOADERS = {
   imgur: (file, _bytes, _mime, clientId) => uploadImgur(file, clientId),
 };
 
-const SETTINGS_DEFAULTS = { provider: 'auto', format: 'html', imgurClientId: '', sameProviderOnly: false };
+const SETTINGS_DEFAULTS = { provider: 'auto', format: 'html', imgurClientId: '', sameProviderOnly: false, autoOrder: AUTO_ORDER };
+
+// The stored order is user data: unknown or repeated names are dropped, and
+// chain providers it does not name (e.g. one added in an update) keep their
+// default position at the end, so the chain never loses a host.
+function resolveAutoOrder(stored) {
+  const picked = Array.isArray(stored) ? [...new Set(stored)].filter((name) => AUTO_ORDER.includes(name)) : [];
+  return [...picked, ...AUTO_ORDER.filter((name) => !picked.includes(name))];
+}
 
 function getSettings() {
   return new Promise((resolve) => {
@@ -249,7 +257,7 @@ async function handleUpload(msg) {
 
   let order;
   if (wanted === 'auto') {
-    order = [...AUTO_ORDER];
+    order = resolveAutoOrder(settings.autoOrder);
     if (settings.imgurClientId) order.unshift('imgur');
   } else {
     order = [wanted];
@@ -283,7 +291,7 @@ async function handleUpload(msg) {
 
 // Exported for Node tests; the chrome guard below keeps the listener inert there.
 if (typeof globalThis !== 'undefined') {
-  globalThis.__pastepic = { UPLOADERS, makeFile, AUTO_ORDER, handleUpload };
+  globalThis.__pastepic = { UPLOADERS, makeFile, AUTO_ORDER, resolveAutoOrder, handleUpload };
 }
 
 if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {

@@ -4,3 +4,5 @@
 .agents/skills/verify-pastepic/.fixture-server.pid
 .agents/skills/verify-pastepic/.fixture-server.log
 .agents/skills/verify-pastepic/helpers/certs/
+dist/
+node_modules/

@@ -52,7 +52,11 @@ function runWithServer(script) {
 }
 
 const results = [];
-for (const step of steps) {
+console.log('\n=== build ===');
+const buildStarted = Date.now();
+const build = spawnSync('npm', ['run', 'build'], { cwd: ROOT, stdio: 'inherit' });
+results.push({ id: 'build', ok: build.status === 0, ms: Date.now() - buildStarted });
+for (const step of build.status === 0 ? steps : []) {
   console.log(`\n=== ${step.id} ===`);
   const started = Date.now();
   const r = step.run();

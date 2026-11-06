@@ -1,4 +1,4 @@
-<!-- translated from README.md @ 9a7918b (base: 9a7918b; readme-blob: 6639cefcb2b125c13aafc00f20c454c370772108); when README.md changes, sync this file and update the SHA and readme-blob (git hash-object README.md) -->
+<!-- translated from README.md @ 3d4a2e4 (base: 3d4a2e4; readme-blob: 43762747081c58a155a33000db65da5a81744620); when README.md changes, sync this file and update the SHA and readme-blob (git hash-object README.md) -->
 [English](README.md) · **Português (Brasil)**
 
 > A [README.md](README.md) em inglês é a versão de referência; esta tradução pode ficar atrás dela.
@@ -24,20 +24,27 @@ O campo de comentário do TabNews e do curso.dev não é um `<textarea>` comum: 
 - `content.js` escuta o evento `paste` no documento. Achou imagem? Cancela o paste, mostra `⏳ Enviando imagem...` no lugar do cursor e envia os bytes ao `background.js`.
 - `page-bridge.js` (mundo da página) executa a troca do placeholder pela tag na instância real do CodeMirror 5.
 - `background.js` (service worker) faz o upload. O upload roda na extensão (não na página) porque hosts como o catbox.moe não liberam CORS para sites — com `host_permissions` a extensão pode chamar a API direto.
-- Ordem no modo **automático**: `catbox.moe` → `pomf.lain.la` → `uguu.se` → `litterbox` (72h) → `tmpfiles.org`. Se um estiver fora do ar (o catbox e o 0x0.st estavam pausados em nov/2026), tenta o próximo.
+- Ordem no modo **automático**: `catbox.moe` → `pomf.lain.la` → `uguu.se` → `litterbox` (72h) → `tmpfiles.org`. Se um estiver fora do ar (o catbox e o 0x0.st estavam pausados em nov/2026), tenta o próximo. A ordem pode ser mudada no popup, em **Opções avançadas**; o `background.js` descarta nomes desconhecidos de uma ordem salva e acrescenta ao fim os hosts da cadeia que ela não citar.
 - Colar de novo a mesma imagem reaproveita o link em vez de enviá-la outra vez. O `background.js` guarda um SHA-256 de cada imagem enviada com a URL no `chrome.storage.local`, só neste dispositivo, e reaproveita o link enquanto o serviço ainda mantém o arquivo (validade por serviço em `limits.js`). A imagem em si não é guardada. O link pode vir de um serviço diferente do escolhido; a opção **Não reaproveitar uploads de outros provedores** no popup (desligada por padrão) limita o reaproveitamento ao serviço escolhido, ou à cadeia automática.
 - Opcional: se você possui um **Client-ID antigo do Imgur**, configure-o no popup para uploads permanentes via Imgur. Atenção: o Imgur **fechou novos registros de aplicativo** (a página `api.imgur.com/oauth2/addclient` redireciona para a home, sem previsão de reabertura), então não é mais possível criar um Client-ID novo.
 - Formato de inserção configurável no popup: HTML `<img src="...">` (padrão) ou Markdown `![](...)`.
 
 ## Instalação (modo desenvolvedor)
 
-1. Baixe/descompacte esta pasta (ou o `pastepic.zip`).
+1. Descompacte o `store/pastepic-2.2.0.zip` numa pasta só para ele.
 2. Abra `chrome://extensions`.
 3. Ative **Modo do desenvolvedor** (canto superior direito).
-4. Clique em **Carregar sem compactação** e selecione a pasta `pastepic`.
+4. Clique em **Carregar sem compactação** e selecione a pasta onde descompactou (a que tem o `manifest.json`).
 5. Abra um conteúdo do TabNews ou uma aula do curso.dev (logado), clique no campo de comentário e cole a imagem com Cmd/Ctrl+V.
 
-Para atualizar após editar os arquivos: clique no ícone ⟳ (recarregar) do cartão da extensão em `chrome://extensions`.
+### A partir do código-fonte
+
+O popup é um app React compilado com Vite; os content scripts e o service worker não precisam de build. Num clone:
+
+1. Rode `npm install && npm run build` na raiz do repositório. O popup vai para `dist/popup/`.
+2. Em `chrome://extensions`, clique em **Carregar sem compactação** e selecione a raiz do repositório.
+
+Para atualizar após editar os arquivos: rode `npm run build` de novo se mudou algo em `popup/` e clique no ícone ⟳ (recarregar) do cartão da extensão em `chrome://extensions`. O `npm run package` compila e gera o `store/pastepic-<versão>.zip` para a Chrome Web Store.
 
 ## Adicionar outros sites
 
@@ -61,7 +68,7 @@ Evite habilitar em sites que já tratam paste de imagem nativamente (GitHub, Git
 | `page-bridge.js` | Mundo da página: detecção de editor, adapters, único escritor   |
 | `limits.js`      | Cadeia de provedores e timeouts (a trava de resposta é derivada) |
 | `background.js`  | Upload para os hosts gratuitos + fallback                       |
-| `popup.html/js`  | Escolha de provedor, formato e Client-ID do Imgur               |
+| `popup/`         | Código do popup (React + FLPM UI): provedor, formato, Client-ID do Imgur e reaproveitamento; compila para `dist/popup/` |
 
 ## Limites e solução de problemas
 
